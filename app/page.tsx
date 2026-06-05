@@ -100,9 +100,9 @@ export default function Home() {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
       const gasPrice = await provider.getFeeData();
       const estimate = await contract.pay.estimateGas(payId);
-      const feeInEth = estimate * (gasPrice.gasPrice || 0n);
-      const feeInUsdc = ethers.formatUnits(feeInEth, 18); // asumsi 1:1 dengan USDC
-      setGasEstimate(`${parseFloat(feeInUsdc).toFixed(4)} USDC`);
+      const feeInEth = Number(estimate) * Number(gasPrice.gasPrice || 0);
+      const feeInUsdc = (feeInEth / 1e18).toFixed(6);
+      setGasEstimate(`${feeInUsdc} USDC`);
     } catch (err) {
       setGasEstimate('N/A');
     }
