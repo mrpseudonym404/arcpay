@@ -4,7 +4,7 @@ import { ethers } from 'ethers';
 
 const CONTRACT_ADDRESS = '0xCb3C8104ba53ec98513e2AD4f02135B2704cB84b';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
-const ARC_CHAIN_ID = '0x4CE162';
+const ARC_CHAIN_ID = '0x4CEF52'; // ✅ 5042002 dalam hex, CHAIN ID YANG BENAR
 
 const CONTRACT_ABI = [
   'function createRequest(string description, uint256 amount) returns (bytes32)',
