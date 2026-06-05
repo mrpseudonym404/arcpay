@@ -26,27 +26,30 @@ export default function Home() {
   const [amount, setAmount] = useState('');
   const [payId, setPayId] = useState('');
   const [loading, setLoading] = useState('');
+  const [myRequests, setMyRequests] = useState<any[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
     const { ethereum } = window as any;
     if (!ethereum) return;
-
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length === 0) {
         setWallet('');
         setBalance('0');
+        setMyRequests([]);
       } else if (accounts[0] !== wallet) {
         setWallet(accounts[0]);
       }
     };
-
     ethereum.on('accountsChanged', handleAccountsChanged);
     return () => ethereum.removeListener('accountsChanged', handleAccountsChanged);
   }, [wallet]);
 
   useEffect(() => {
-    if (wallet) fetchBalance();
+    if (wallet) {
+      fetchBalance();
+      fetchMyRequests();
+    }
   }, [wallet]);
 
   async function fetchBalance() {
@@ -62,6 +65,21 @@ export default function Home() {
     }
   }
 
+  async function fetchMyRequests() {
+    try {
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+      const ids = await contract.getRequests(wallet);
+      const requestsData = await Promise.all(ids.map(async (id: string) => {
+        const req = await contract.requests(id);
+        return { id, description: req.description, amount: req.amount, paid: req.paid };
+      }));
+      setMyRequests(requestsData);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   async function connectWallet() {
     setIsConnecting(true);
     const { ethereum } = window as any;
@@ -70,7 +88,6 @@ export default function Home() {
       setIsConnecting(false);
       return;
     }
-
     try {
       await ethereum.request({ method: 'eth_requestAccounts' });
       try {
@@ -105,6 +122,7 @@ export default function Home() {
   async function disconnectWallet() {
     setWallet('');
     setBalance('0');
+    setMyRequests([]);
   }
 
   async function createRequest() {
@@ -120,6 +138,7 @@ export default function Home() {
       const tx = await contract.createRequest(desc, amt);
       await tx.wait();
       setDesc(''); setAmount('');
+      await fetchMyRequests();
     } catch(e: any) {
       alert(e.message?.slice(0,60));
     }
@@ -139,10 +158,16 @@ export default function Home() {
       const tx = await contract.pay(payId);
       await tx.wait();
       setPayId('');
+      await fetchMyRequests();
     } catch(e: any) {
       alert(e.message?.slice(0,60));
     }
     setLoading('');
+  }
+
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text);
+    alert('Request ID copied!');
   }
 
   return (
@@ -156,124 +181,90 @@ export default function Home() {
             <span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">ArcPay</span>
             <span className="text-[10px] font-mono text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">Arc Testnet</span>
           </div>
-
           {!wallet ? (
-            <button
-              onClick={connectWallet}
-              disabled={isConnecting}
-              className="group relative px-6 py-2 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:shadow-lg hover:shadow-pink-500/25 transition-all duration-300 disabled:opacity-50"
-            >
-              {isConnecting ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
-              ) : (
-                <span className="flex items-center gap-2">✨ Connect Wallet</span>
-              )}
+            <button onClick={connectWallet} disabled={isConnecting} className="px-6 py-2 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:shadow-lg disabled:opacity-50">
+              {isConnecting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : '✨ Connect Wallet'}
             </button>
           ) : (
             <div className="flex items-center gap-4 bg-white/5 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50"></div>
-                <span className="font-mono text-sm tracking-wider text-gray-300">{wallet.slice(0,6)}...{wallet.slice(-4)}</span>
-                <span className="text-xs bg-gradient-to-r from-pink-500/20 to-cyan-500/20 px-2 py-0.5 rounded-full text-pink-300">{parseFloat(balance).toFixed(2)} USDC</span>
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="font-mono text-sm">{wallet.slice(0,6)}...{wallet.slice(-4)}</span>
+                <span className="text-xs bg-gradient-to-r from-pink-500/20 to-cyan-500/20 px-2 py-0.5 rounded-full">{parseFloat(balance).toFixed(2)} USDC</span>
               </div>
-              <button
-                onClick={disconnectWallet}
-                className="text-gray-400 hover:text-white transition-colors text-sm"
-              >
-                🔌
-              </button>
+              <button onClick={disconnectWallet} className="text-gray-400 hover:text-white">🔌</button>
             </div>
           )}
         </div>
       </nav>
 
-      <div className="relative z-10 text-center pt-16 pb-12">
-        <h1 className="text-5xl md:text-7xl font-black mb-4 bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
-          USDC Payments
-        </h1>
-        <p className="text-gray-400 text-sm max-w-md mx-auto">
-          Send and receive payment requests on Arc L1 — fast, cheap, and secure.
-        </p>
+      <div className="relative z-10 text-center pt-12 pb-8">
+        <h1 className="text-5xl font-black mb-3 bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">USDC Payments</h1>
+        <p className="text-gray-400 text-sm">Send and receive payment requests on Arc L1</p>
       </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto px-6 pb-20">
+      <div className="relative z-10 max-w-6xl mx-auto px-6 pb-20">
         <div className="grid md:grid-cols-2 gap-6">
-          <div className="group relative bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-pink-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-pink-500/10">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-lg group-hover:scale-110 transition">📝</div>
-              <h2 className="text-lg font-semibold">Create Request</h2>
-            </div>
+          {/* Create Request Card */}
+          <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-pink-500/50 transition">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">📝 Create Request</h2>
             <div className="space-y-4">
-              <input
-                type="text"
-                placeholder="What's it for?"
-                value={desc}
-                onChange={(e) => setDesc(e.target.value)}
-                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition placeholder:text-gray-600"
-              />
-              <input
-                type="number"
-                placeholder="Amount (USDC)"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition"
-              />
-              <button
-                onClick={createRequest}
-                disabled={loading !== '' || !wallet}
-                className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-pink-600 to-purple-600 hover:shadow-lg hover:shadow-pink-500/25 disabled:opacity-50 transition-all duration-300"
-              >
-                {loading === 'Creating request...' ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Creating...
-                  </div>
-                ) : (
-                  '✨ Create Request'
-                )}
+              <input type="text" placeholder="What's it for?" value={desc} onChange={(e) => setDesc(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500" />
+              <input type="number" placeholder="Amount (USDC)" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500" />
+              <button onClick={createRequest} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-pink-600 to-purple-600 hover:shadow-lg disabled:opacity-50">
+                {loading === 'Creating request...' ? 'Creating...' : '✨ Create Request'}
               </button>
             </div>
           </div>
 
-          <div className="group relative bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center text-lg group-hover:scale-110 transition">💸</div>
-              <h2 className="text-lg font-semibold">Pay Request</h2>
-            </div>
+          {/* Pay Request Card */}
+          <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-cyan-500/50 transition">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">💸 Pay Request</h2>
             <div className="space-y-4">
-              <input
-                type="text"
-                placeholder="Request ID (0x...)"
-                value={payId}
-                onChange={(e) => setPayId(e.target.value)}
-                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-cyan-500 transition"
-              />
-              <button
-                onClick={payRequest}
-                disabled={loading !== '' || !wallet}
-                className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-cyan-600 to-teal-600 hover:shadow-lg hover:shadow-cyan-500/25 disabled:opacity-50 transition-all duration-300"
-              >
-                {loading === 'Processing payment...' ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Paying...
-                  </div>
-                ) : (
-                  '💸 Pay Request'
-                )}
+              <input type="text" placeholder="Request ID (0x...)" value={payId} onChange={(e) => setPayId(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-cyan-500" />
+              <button onClick={payRequest} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-cyan-600 to-teal-600 hover:shadow-lg disabled:opacity-50">
+                {loading === 'Processing payment...' ? 'Paying...' : '💸 Pay Request'}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Footer with ✦ Built on Arc Testnet — USDC by Circle ✦ */}
-        <div className="text-center mt-16 pt-6 border-t border-white/5">
-          <p className="text-gray-400 text-xs tracking-wide">
-            ✦ Built on <a href="https://arc.network" target="_blank" rel="noopener noreferrer" className="text-pink-400 hover:text-pink-300 transition">Arc Testnet</a> — <a href="https://circle.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 transition">USDC by Circle</a> ✦
-          </p>
-          <p className="text-gray-600 text-[10px] font-mono mt-2">
-            <a href="https://github.com/mrpseudonym404/arcpay" target="_blank" rel="noopener noreferrer" className="hover:text-gray-400 transition">📦 arcpay</a> • {CONTRACT_ADDRESS.slice(0,8)}...{CONTRACT_ADDRESS.slice(-6)}
-          </p>
+        {/* My Requests Section */}
+        {wallet && (
+          <div className="mt-12 bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">📋 My Requests</h2>
+            {myRequests.length === 0 ? (
+              <p className="text-gray-500 text-sm text-center py-6">No requests yet. Create one above!</p>
+            ) : (
+              <div className="space-y-3">
+                {myRequests.map((req, idx) => (
+                  <div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/10 transition">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium">{req.description}</p>
+                        <p className="text-xs text-gray-400 font-mono break-all">{req.id}</p>
+                        <p className="text-xs text-cyan-300 mt-1">{ethers.formatUnits(req.amount, 6)} USDC</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className={`text-xs px-2 py-1 rounded-full ${req.paid ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                          {req.paid ? 'Paid ✓' : 'Pending'}
+                        </span>
+                        {!req.paid && (
+                          <button onClick={() => copyToClipboard(req.id)} className="text-xs text-gray-400 hover:text-white transition">📋 Copy ID</button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="text-center mt-12 pt-6 border-t border-white/5">
+          <p className="text-gray-400 text-xs">✦ Built on Arc Testnet — USDC by Circle ✦</p>
+          <p className="text-gray-600 text-[10px] font-mono mt-1">arcpay · {CONTRACT_ADDRESS.slice(0,8)}...{CONTRACT_ADDRESS.slice(-6)}</p>
         </div>
       </div>
     </div>
