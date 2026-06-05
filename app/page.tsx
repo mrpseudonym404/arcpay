@@ -3,13 +3,13 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import confetti from 'canvas-confetti';
 
-const CONTRACT_ADDRESS = '0xCb3C8104ba53ec98513e2AD4f02135B2704cB84b';
+const CONTRACT_ADDRESS = '0xF0E8582C1Ec5A182C9CF95802499f2eDa5CC03f8';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
 const ARC_CHAIN_ID = '0x4CEF52';
 
 const CONTRACT_ABI = [
   'function createRequest(string description, uint256 amount) returns (bytes32)',
-  'function pay(bytes32 id) external',
+  'function payRequest(bytes32 id) external payable',
   'function getRequests(address user) view returns (bytes32[])',
   'function requests(bytes32) view returns (address creator, string description, uint256 amount, bool paid)'
 ];
@@ -37,18 +37,15 @@ export default function Home() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'paid'>('all');
   const [darkMode, setDarkMode] = useState(true);
 
-  // Load dark mode preference
   useEffect(() => {
     const saved = localStorage.getItem('arcpay-darkmode');
     if (saved !== null) setDarkMode(saved === 'true');
   }, []);
 
-  // Save dark mode preference
   useEffect(() => {
     localStorage.setItem('arcpay-darkmode', String(darkMode));
   }, [darkMode]);
 
-  // Auto-detect wallet disconnect
   useEffect(() => {
     const { ethereum } = window as any;
     if (!ethereum) return;
@@ -65,7 +62,6 @@ export default function Home() {
     return () => ethereum.removeListener('accountsChanged', handleAccountsChanged);
   }, [wallet]);
 
-  // Fetch data when wallet connected
   useEffect(() => {
     if (wallet) {
       fetchBalance();
@@ -73,7 +69,6 @@ export default function Home() {
     }
   }, [wallet]);
 
-  // Real-time balance update on new block
   useEffect(() => {
     if (!wallet) return;
     const { ethereum } = window as any;
@@ -85,7 +80,6 @@ export default function Home() {
     return () => ethereum.removeListener('block', handleBlock);
   }, [wallet]);
 
-  // Estimate gas when payId changes
   useEffect(() => {
     if (payId && wallet) estimateGas();
     else setGasEstimate(null);
@@ -128,7 +122,7 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
       const gasPrice = await provider.getFeeData();
-      const estimate = await contract.pay.estimateGas(payId);
+      const estimate = await contract.payRequest.estimateGas(payId);
       const feeInEth = Number(estimate) * Number(gasPrice.gasPrice || 0);
       const feeInUsdc = (feeInEth / 1e18).toFixed(6);
       setGasEstimate(`${feeInUsdc} USDC`);
@@ -195,8 +189,7 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-      const usdc = new ethers.Contract(USDC_ADDRESS, USDC_ABI, signer);
-      const decimals = await usdc.decimals();
+      const decimals = 6;
       const amt = ethers.parseUnits(amount, decimals);
       const tx = await contract.createRequest(desc, amt);
       const receipt = await tx.wait();
@@ -218,10 +211,10 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-      const usdc = new ethers.Contract(USDC_ADDRESS, USDC_ABI, signer);
       const req = await contract.requests(payId);
-      await (await usdc.approve(CONTRACT_ADDRESS, req.amount)).wait();
-      const tx = await contract.pay(payId);
+      const amountInWei = req.amount;
+      
+      const tx = await contract.payRequest(payId, { value: amountInWei });
       const receipt = await tx.wait();
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [payId]: txHash }));
@@ -249,7 +242,6 @@ export default function Home() {
     setTimeout(() => setToast(null), 5000);
   }
 
-  // Filter and search requests
   const filteredRequests = myRequests.filter(req => {
     const matchesSearch = req.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           req.id.toLowerCase().includes(searchTerm.toLowerCase());
