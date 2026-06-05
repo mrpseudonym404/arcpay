@@ -241,7 +241,7 @@ export default function Home() {
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text);
-    showToast('📋 Request ID copied to clipboard! Share it with payer', 'success');
+    showToast('📋 Request ID copied! Share it with payer', 'success');
   }
 
   function shareRequestLink(requestId: string) {
@@ -297,7 +297,7 @@ export default function Home() {
         }
       `}</style>
 
-      {/* Tutorial Modal - Simple & Clear */}
+      {/* Tutorial Modal */}
       {showTutorial && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
           <div className={`${cardBg} rounded-2xl max-w-md w-full p-6 border ${borderClass}`}>
@@ -313,7 +313,7 @@ export default function Home() {
               </div>
               <div className="flex gap-3">
                 <span className="w-6 h-6 bg-pink-500 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-                <p><strong>Share ID</strong> — Click <span className="text-cyan-400">📋 Copy ID</span> or <span className="text-green-400">🔗 Magic Link</span> → Send to payer</p>
+                <p><strong>Share ID</strong> — Click <span className="text-cyan-400">📋 Copy ID</span> or <span className="text-green-400">🔗 Share</span> → Send to payer</p>
               </div>
               <div className="flex gap-3">
                 <span className="w-6 h-6 bg-pink-500 rounded-full flex items-center justify-center text-xs font-bold">4</span>
@@ -356,7 +356,7 @@ export default function Home() {
             <button onClick={() => setDarkMode(!darkMode)} className="text-xl hover:scale-110 transition" title={darkMode ? 'Light mode' : 'Dark mode'}>
               {darkMode ? '☀️' : '🌙'}
             </button>
-            <button onClick={() => setShowTutorial(true)} className="text-sm hover:scale-110 transition" title="Tutorial">❓</button>
+            <button onClick={() => setShowTutorial(true)} className="text-sm hover:scale-110 transition" title="Show Tutorial">❓</button>
             {!wallet ? (
               <button onClick={connectWallet} disabled={isConnecting} className="px-5 py-2 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:scale-105 transition-transform disabled:opacity-50 flex items-center gap-2">
                 {isConnecting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '✨ Connect Wallet'}
@@ -388,7 +388,7 @@ export default function Home() {
           <div className={`${cardBg} backdrop-blur-md rounded-2xl p-5 border ${borderClass} hover:border-pink-500/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group`}>
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">📝 Create Request</h2>
             <div className="space-y-4">
-              <input type="text" placeholder="What's it for?" value={desc} onChange={(e) => setDesc(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition-all duration-300`} />
+              <input type="text" placeholder="What's it for? (e.g., 'Website design')" value={desc} onChange={(e) => setDesc(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition-all duration-300`} />
               <input type="number" placeholder="Amount (USDC)" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition-all duration-300`} />
               <button onClick={createRequest} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-pink-600 to-purple-600 hover:scale-105 transition-all duration-300 disabled:opacity-50">
                 {loading === 'Creating request...' ? '⏳ Creating...' : '✨ Create Request'}
@@ -413,7 +413,7 @@ export default function Home() {
             <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
               <h2 className="text-lg font-semibold flex items-center gap-2">📋 My Requests</h2>
               <div className="flex gap-2">
-                <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500 transition-all duration-300`} />
+                <input type="text" placeholder="Search by ID or description..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500 transition-all duration-300`} />
                 <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500 transition-all duration-300`}>
                   <option value="all">All</option>
                   <option value="pending">Pending</option>
@@ -431,7 +431,14 @@ export default function Home() {
                 ))}
               </div>
             ) : filteredRequests.length === 0 ? (
-              <p className="text-gray-400 text-sm text-center py-6">No requests yet. Create one above!</p>
+              <div className="text-center py-10">
+                <div className="text-5xl mb-3">📭</div>
+                <p className="text-gray-400 text-sm">No requests yet</p>
+                <p className="text-gray-500 text-xs mt-1">Create your first payment request above</p>
+                <button onClick={() => setShowTutorial(true)} className="mt-3 text-xs text-cyan-400 hover:text-cyan-300 transition">
+                  ❓ Need help? Show tutorial
+                </button>
+              </div>
             ) : (
               <div className="space-y-3">
                 {filteredRequests.map((req, idx) => (
@@ -440,15 +447,13 @@ export default function Home() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{req.description}</p>
                         <div className="flex flex-wrap items-center gap-2 mt-1">
-                          <p className="text-xs text-gray-400 font-mono truncate max-w-[150px] sm:max-w-[300px]">{truncateHash(req.id)}</p>
-                          <div className="flex gap-1">
-                            <button onClick={() => copyToClipboard(req.id)} className="bg-gray-700 hover:bg-cyan-600 px-2 py-1 rounded text-xs transition-all duration-300 flex items-center gap-1" title="Copy Request ID to clipboard">
-                              📋 <span className="hidden sm:inline">Copy ID</span>
-                            </button>
-                            <button onClick={() => shareRequestLink(req.id)} className="bg-gray-700 hover:bg-green-600 px-2 py-1 rounded text-xs transition-all duration-300 flex items-center gap-1" title="Share magic link">
-                              🔗 <span className="hidden sm:inline">Share</span>
-                            </button>
-                          </div>
+                          <p className="text-xs text-gray-400 font-mono truncate max-w-[120px] sm:max-w-[250px]">{truncateHash(req.id)}</p>
+                          <button onClick={() => copyToClipboard(req.id)} className="bg-gray-700 hover:bg-cyan-600 px-2 py-1 rounded text-xs transition-all duration-300 flex items-center gap-1" title="Copy Request ID">
+                            📋 <span className="hidden sm:inline">Copy ID</span>
+                          </button>
+                          <button onClick={() => shareRequestLink(req.id)} className="bg-gray-700 hover:bg-green-600 px-2 py-1 rounded text-xs transition-all duration-300 flex items-center gap-1" title="Share magic link">
+                            🔗 <span className="hidden sm:inline">Share</span>
+                          </button>
                           {txHashes[req.id] && (
                             <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-400 hover:text-cyan-300 transition">🔍 Tx</a>
                           )}
