@@ -37,21 +37,18 @@ export default function Home() {
   const [darkMode, setDarkMode] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
 
-  // Load preferences & hash-based magic link
   useEffect(() => {
     const saved = localStorage.getItem('arcpay-darkmode');
     if (saved !== null) setDarkMode(saved === 'true');
     const tutorialSeen = localStorage.getItem('arcpay-tutorial');
     if (!tutorialSeen) setShowTutorial(true);
     
-    // Magic link via hash (e.g., /#reqId=0x123...)
     const hash = window.location.hash;
     if (hash && hash.includes('reqId=')) {
       const reqId = hash.split('reqId=')[1];
       if (reqId && reqId.startsWith('0x')) {
         setPayId(reqId);
         showToast('✨ Request ID loaded from magic link! Click "Pay Request"', 'success');
-        // Clean hash
         window.location.hash = '';
       }
     }
@@ -107,7 +104,7 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const usdc = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
       const rawBalance = await usdc.balanceOf(wallet);
-      setBalance(ethers.formatUnits(rawBalance, 18));
+      setBalance(ethers.formatUnits(rawBalance, 6));
     } catch (err) {
       console.error(err);
     }
