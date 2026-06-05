@@ -28,18 +28,15 @@ export default function Home() {
   const [loading, setLoading] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Auto-detect wallet disconnect & account change
   useEffect(() => {
     const { ethereum } = window as any;
     if (!ethereum) return;
 
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length === 0) {
-        // Wallet disconnected
         setWallet('');
         setBalance('0');
       } else if (accounts[0] !== wallet) {
-        // Account changed
         setWallet(accounts[0]);
       }
     };
@@ -150,10 +147,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white font-sans relative overflow-x-hidden">
-      {/* Animated Grid Background */}
       <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 40 40\'%3E%3Cpath fill=\'%2318182f\' fill-opacity=\'0.4\' d=\'M20 20L40 0 40 40 20 20zM0 40L20 20 0 0 0 40z\'/%3E%3C/svg%3E')] opacity-20" />
 
-      {/* Navbar */}
       <nav className="relative z-10 border-b border-white/5 bg-black/40 backdrop-blur-xl sticky top-0">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -192,7 +187,6 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Hero */}
       <div className="relative z-10 text-center pt-16 pb-12">
         <h1 className="text-5xl md:text-7xl font-black mb-4 bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
           USDC Payments
@@ -202,10 +196,8 @@ export default function Home() {
         </p>
       </div>
 
-      {/* Main Grid */}
       <div className="relative z-10 max-w-5xl mx-auto px-6 pb-20">
         <div className="grid md:grid-cols-2 gap-6">
-          {/* Create Request Card */}
           <div className="group relative bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-pink-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-pink-500/10">
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-lg group-hover:scale-110 transition">📝</div>
@@ -243,7 +235,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Pay Request Card */}
           <div className="group relative bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10">
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center text-lg group-hover:scale-110 transition">💸</div>
@@ -275,10 +266,14 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Footer */}
+        {/* Footer with ✦ Built on Arc Testnet — USDC by Circle ✦ */}
         <div className="text-center mt-16 pt-6 border-t border-white/5">
-          <p className="text-gray-500 text-xs">Powered by Circle Arc Testnet</p>
-          <p className="text-gray-600 text-[10px] font-mono mt-1">{CONTRACT_ADDRESS}</p>
+          <p className="text-gray-400 text-xs tracking-wide">
+            ✦ Built on <a href="https://arc.network" target="_blank" rel="noopener noreferrer" className="text-pink-400 hover:text-pink-300 transition">Arc Testnet</a> — <a href="https://circle.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 transition">USDC by Circle</a> ✦
+          </p>
+          <p className="text-gray-600 text-[10px] font-mono mt-2">
+            <a href="https://github.com/mrpseudonym404/arcpay" target="_blank" rel="noopener noreferrer" className="hover:text-gray-400 transition">📦 arcpay</a> • {CONTRACT_ADDRESS.slice(0,8)}...{CONTRACT_ADDRESS.slice(-6)}
+          </p>
         </div>
       </div>
     </div>
