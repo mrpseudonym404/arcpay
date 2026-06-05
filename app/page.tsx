@@ -211,10 +211,15 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      
       const req = await contract.requests(payId);
       const amountInWei = req.amount;
       
-      const tx = await contract.payRequest(payId, { value: amountInWei });
+      const tx = await contract.payRequest(payId, { 
+        value: amountInWei,
+        gasLimit: 500000
+      });
+      
       const receipt = await tx.wait();
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [payId]: txHash }));
@@ -223,6 +228,7 @@ export default function Home() {
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
       showToast('Payment sent successfully! 🎉', 'success', txHash);
     } catch(e: any) {
+      console.error(e);
       showToast(e.message?.slice(0,60), 'error');
     }
     setLoading('');
