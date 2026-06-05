@@ -189,7 +189,7 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-      const decimals = 6;
+      const decimals = 18;
       const amt = ethers.parseUnits(amount, decimals);
       const tx = await contract.createRequest(desc, amt);
       const receipt = await tx.wait();
@@ -398,7 +398,7 @@ export default function Home() {
                             <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-400 hover:text-cyan-300 transition">🔗 View Tx</a>
                           )}
                         </div>
-                        <p className="text-xs text-cyan-300 mt-1">{ethers.formatUnits(req.amount, 6)} USDC</p>
+                        <p className="text-xs text-cyan-300 mt-1">{ethers.formatUnits(req.amount, 18)} USDC</p>
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <span className={`text-xs px-3 py-1 rounded-full ${req.paid ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'}`}>
