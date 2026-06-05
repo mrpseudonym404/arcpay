@@ -37,7 +37,6 @@ export default function Home() {
   const [darkMode, setDarkMode] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
 
-  // Load dark mode preference
   useEffect(() => {
     const saved = localStorage.getItem('arcpay-darkmode');
     if (saved !== null) setDarkMode(saved === 'true');
@@ -49,7 +48,6 @@ export default function Home() {
     localStorage.setItem('arcpay-darkmode', String(darkMode));
   }, [darkMode]);
 
-  // Auto-detect wallet disconnect & account change
   useEffect(() => {
     const { ethereum } = window as any;
     if (!ethereum) return;
@@ -66,7 +64,6 @@ export default function Home() {
     return () => ethereum.removeListener('accountsChanged', handleAccountsChanged);
   }, [wallet]);
 
-  // Auto-refresh balance & requests on new block
   useEffect(() => {
     if (!wallet) return;
     const { ethereum } = window as any;
@@ -79,7 +76,6 @@ export default function Home() {
     return () => ethereum.removeListener('block', handleBlock);
   }, [wallet]);
 
-  // Initial fetch when wallet connects
   useEffect(() => {
     if (wallet) {
       fetchBalance();
@@ -87,11 +83,20 @@ export default function Home() {
     }
   }, [wallet]);
 
-  // Gas estimate
   useEffect(() => {
     if (payId && wallet) estimateGas();
     else setGasEstimate(null);
   }, [payId, wallet]);
+
+  // Auto-fill from URL magic link
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reqId = params.get('reqId');
+    if (reqId && reqId.startsWith('0x')) {
+      setPayId(reqId);
+      showToast('✨ Request ID loaded from magic link! Click "Pay Request"', 'success');
+    }
+  }, []);
 
   async function fetchBalance() {
     if (!wallet) return;
@@ -254,16 +259,6 @@ export default function Home() {
     setTimeout(() => setToast(null), 4000);
   }
 
-  // Auto-fill from URL magic link
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const reqId = params.get('reqId');
-    if (reqId && reqId.startsWith('0x')) {
-      setPayId(reqId);
-      showToast('✨ Request ID loaded from magic link! Click "Pay Request"', 'success');
-    }
-  }, []);
-
   const filteredRequests = myRequests.filter(req => {
     const matchesSearch = req.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           req.id.toLowerCase().includes(searchTerm.toLowerCase());
@@ -302,7 +297,6 @@ export default function Home() {
         }
       `}</style>
 
-      {/* Tutorial Modal */}
       {showTutorial && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
           <div className={`${cardBg} rounded-2xl max-w-md w-full p-6 border ${borderClass}`}>
@@ -312,16 +306,16 @@ export default function Home() {
               <p>2️⃣ <strong>Create Request</strong> – Fill description & amount, then click Create</p>
               <p>3️⃣ <strong>Share ID</strong> – Copy Request ID or use 🔗 Magic Link to share</p>
               <p>4️⃣ <strong>Payer pays</strong> – Payer pastes ID or clicks link, then pays</p>
-              <p>5️⃣ <strong>Auto-update</strong> – Balance refreshes automatically on new blocks</p>
+              <p>5️⃣ <strong>You are ready</strong> – Now create and share your first payment request!</p>
+              <p className="text-cyan-400 text-xs mt-2">✨ Happy building on Arc Testnet ✨</p>
             </div>
             <button onClick={() => { setShowTutorial(false); localStorage.setItem('arcpay-tutorial', 'true'); }} className="mt-5 w-full py-2 rounded-xl bg-gradient-to-r from-pink-600 to-cyan-600 hover:scale-105 transition">
-              Got it! 🚀
+              🎉 Let's start! 🚀
             </button>
           </div>
         </div>
       )}
 
-      {/* Toast Notification */}
       {toast && (
         <div className={`fixed bottom-5 left-5 z-50 px-5 py-3 rounded-xl shadow-2xl backdrop-blur-md text-sm font-medium ${toast.type === 'success' ? 'bg-green-600/80' : 'bg-red-600/80'} text-white animate-fadeIn`}>
           <div className="flex items-center gap-2 flex-wrap">
@@ -335,7 +329,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Navbar */}
       <nav className={`relative z-10 border-b ${borderClass} ${navBg} backdrop-blur-xl sticky top-0 transition-all duration-300`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-2">
@@ -369,16 +362,13 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Hero */}
       <div className="relative z-10 text-center pt-8 pb-6 px-4">
         <h1 className="text-4xl sm:text-5xl font-black mb-2 bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-lg animate-pulse">USDC Payments</h1>
         <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Send and receive payment requests on Arc L1</p>
       </div>
 
-      {/* Main Grid */}
       <div className="relative z-10 max-w-6xl mx-auto px-4 pb-20">
         <div className="grid md:grid-cols-2 gap-6">
-          {/* Create Request Card */}
           <div className={`${cardBg} backdrop-blur-md rounded-2xl p-5 border ${borderClass} hover:border-pink-500/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group`}>
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">📝 Create Request</h2>
             <div className="space-y-4">
@@ -390,7 +380,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Pay Request Card */}
           <div className={`${cardBg} backdrop-blur-md rounded-2xl p-5 border ${borderClass} hover:border-cyan-500/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group`}>
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">💸 Pay Request</h2>
             <div className="space-y-4">
@@ -403,7 +392,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* My Requests Section */}
         {wallet && (
           <div className={`mt-10 ${cardBg} backdrop-blur-md rounded-2xl p-5 border ${borderClass} transition-all duration-300`}>
             <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
@@ -458,7 +446,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Footer */}
         <div className="text-center mt-10 pt-6 border-t border-white/10">
           <p className="text-gray-400 text-xs animate-pulse">✦ Built on Arc Testnet — USDC by Circle ✦</p>
           <p className="text-gray-500 text-[10px] font-mono mt-1">arcpay · {CONTRACT_ADDRESS.slice(0,8)}...{CONTRACT_ADDRESS.slice(-6)}</p>
