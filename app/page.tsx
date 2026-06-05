@@ -30,9 +30,25 @@ export default function Home() {
   const [myRequests, setMyRequests] = useState<any[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
-  const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
+  const [toast, setToast] = useState<{msg: string, type: 'success' | 'error', txHash?: string} | null>(null);
   const [gasEstimate, setGasEstimate] = useState<string | null>(null);
+  const [txHashes, setTxHashes] = useState<{[key: string]: string}>({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'paid'>('all');
+  const [darkMode, setDarkMode] = useState(true);
 
+  // Load dark mode preference
+  useEffect(() => {
+    const saved = localStorage.getItem('arcpay-darkmode');
+    if (saved !== null) setDarkMode(saved === 'true');
+  }, []);
+
+  // Save dark mode preference
+  useEffect(() => {
+    localStorage.setItem('arcpay-darkmode', String(darkMode));
+  }, [darkMode]);
+
+  // Auto-detect wallet disconnect
   useEffect(() => {
     const { ethereum } = window as any;
     if (!ethereum) return;
@@ -49,6 +65,7 @@ export default function Home() {
     return () => ethereum.removeListener('accountsChanged', handleAccountsChanged);
   }, [wallet]);
 
+  // Fetch data when wallet connected
   useEffect(() => {
     if (wallet) {
       fetchBalance();
@@ -56,6 +73,19 @@ export default function Home() {
     }
   }, [wallet]);
 
+  // Real-time balance update on new block
+  useEffect(() => {
+    if (!wallet) return;
+    const { ethereum } = window as any;
+    if (!ethereum) return;
+    const handleBlock = async () => {
+      await fetchBalance();
+    };
+    ethereum.on('block', handleBlock);
+    return () => ethereum.removeListener('block', handleBlock);
+  }, [wallet]);
+
+  // Estimate gas when payId changes
   useEffect(() => {
     if (payId && wallet) estimateGas();
     else setGasEstimate(null);
@@ -69,7 +99,6 @@ export default function Home() {
       const decimals = await usdc.decimals();
       const rawBalance = await usdc.balanceOf(wallet);
       setBalance(ethers.formatUnits(rawBalance, decimals));
-      showToast('Balance updated', 'success');
     } catch (err) {
       console.error(err);
     }
@@ -152,6 +181,9 @@ export default function Home() {
     setWallet('');
     setBalance('0');
     setMyRequests([]);
+    setTxHashes({});
+    setSearchTerm('');
+    setFilterStatus('all');
     showToast('Wallet disconnected', 'success');
   }
 
@@ -167,10 +199,12 @@ export default function Home() {
       const decimals = await usdc.decimals();
       const amt = ethers.parseUnits(amount, decimals);
       const tx = await contract.createRequest(desc, amt);
-      await tx.wait();
+      const receipt = await tx.wait();
+      const txHash = receipt.hash;
+      setTxHashes(prev => ({ ...prev, [desc]: txHash }));
       setDesc(''); setAmount('');
       await fetchMyRequests();
-      showToast('Request created successfully!', 'success');
+      showToast('Request created successfully!', 'success', txHash);
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
     }
@@ -188,11 +222,13 @@ export default function Home() {
       const req = await contract.requests(payId);
       await (await usdc.approve(CONTRACT_ADDRESS, req.amount)).wait();
       const tx = await contract.pay(payId);
-      await tx.wait();
+      const receipt = await tx.wait();
+      const txHash = receipt.hash;
+      setTxHashes(prev => ({ ...prev, [payId]: txHash }));
       setPayId('');
       await fetchMyRequests();
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-      showToast('Payment sent successfully! 🎉', 'success');
+      showToast('Payment sent successfully! 🎉', 'success', txHash);
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
     }
@@ -208,13 +244,30 @@ export default function Home() {
     return `${hash.slice(0,6)}...${hash.slice(-6)}`;
   }
 
-  function showToast(msg: string, type: 'success' | 'error') {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+  function showToast(msg: string, type: 'success' | 'error', txHash?: string) {
+    setToast({ msg, type, txHash });
+    setTimeout(() => setToast(null), 5000);
   }
 
+  // Filter and search requests
+  const filteredRequests = myRequests.filter(req => {
+    const matchesSearch = req.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          req.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterStatus === 'all' ||
+                         (filterStatus === 'pending' && !req.paid) ||
+                         (filterStatus === 'paid' && req.paid);
+    return matchesSearch && matchesFilter;
+  });
+
+  const bgClass = darkMode ? 'bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900' : 'bg-gradient-to-br from-gray-100 via-white to-gray-100';
+  const textClass = darkMode ? 'text-white' : 'text-gray-900';
+  const cardBg = darkMode ? 'bg-white/5' : 'bg-white/70';
+  const borderClass = darkMode ? 'border-white/10' : 'border-gray-300/30';
+  const inputBg = darkMode ? 'bg-black/50' : 'bg-white/80';
+  const navBg = darkMode ? 'bg-black/30' : 'bg-white/30';
+
   return (
-    <div className="min-h-screen text-white font-sans relative overflow-x-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 animate-gradient">
+    <div className={`min-h-screen ${bgClass} ${textClass} font-sans relative overflow-x-hidden transition-colors duration-300`}>
       
       <style jsx global>{`
         @keyframes gradient {
@@ -229,60 +282,76 @@ export default function Home() {
       `}</style>
 
       {toast && (
-        <div className={`fixed top-5 right-5 z-50 px-5 py-3 rounded-xl shadow-2xl backdrop-blur-md text-sm font-medium ${toast.type === 'success' ? 'bg-green-600/80' : 'bg-red-600/80'}`}>
-          {toast.type === 'success' ? '✅' : '❌'} {toast.msg}
+        <div className={`fixed bottom-5 left-5 z-50 px-5 py-3 rounded-xl shadow-2xl backdrop-blur-md text-sm font-medium ${toast.type === 'success' ? 'bg-green-600/80' : 'bg-red-600/80'} text-white`}>
+          <div className="flex items-center gap-2 flex-wrap">
+            {toast.type === 'success' ? '✅' : '❌'} {toast.msg}
+            {toast.txHash && (
+              <a href={`https://testnet.arcscan.app/tx/${toast.txHash}`} target="_blank" rel="noopener noreferrer" className="underline text-xs ml-1 hover:text-cyan-200">
+                🔗 View Tx
+              </a>
+            )}
+          </div>
         </div>
       )}
 
-      <nav className="relative z-10 border-b border-white/10 bg-black/30 backdrop-blur-xl sticky top-0">
+      <nav className={`relative z-10 border-b ${borderClass} ${navBg} backdrop-blur-xl sticky top-0`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-cyan-500 rounded-lg shadow-lg animate-pulse"></div>
             <span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">ArcPay</span>
             <span className="text-[10px] font-mono text-gray-400 bg-white/10 px-2 py-0.5 rounded-full">Arc Testnet</span>
           </div>
-          {!wallet ? (
-            <button onClick={connectWallet} disabled={isConnecting} className="px-5 py-2 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:scale-105 transition-transform disabled:opacity-50 flex items-center gap-2">
-              {isConnecting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '✨ Connect Wallet'}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="text-xl hover:scale-110 transition"
+              title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {darkMode ? '☀️' : '🌙'}
             </button>
-          ) : (
-            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20 flex-wrap">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="font-mono text-sm">{wallet.slice(0,6)}...{wallet.slice(-4)}</span>
-                <span className="text-xs bg-gradient-to-r from-pink-500/30 to-cyan-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  {parseFloat(balance).toFixed(2)} USDC
-                  <button onClick={fetchBalance} className="text-gray-300 hover:text-white transition-colors" title="Refresh balance">🔄</button>
-                </span>
+            {!wallet ? (
+              <button onClick={connectWallet} disabled={isConnecting} className="px-5 py-2 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:scale-105 transition-transform disabled:opacity-50 flex items-center gap-2">
+                {isConnecting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '✨ Connect Wallet'}
+              </button>
+            ) : (
+              <div className={`flex items-center gap-3 ${cardBg} backdrop-blur-md px-3 py-1.5 rounded-full border ${borderClass} flex-wrap`}>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="font-mono text-sm">{wallet.slice(0,6)}...{wallet.slice(-4)}</span>
+                  <span className="text-xs bg-gradient-to-r from-pink-500/30 to-cyan-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    {parseFloat(balance).toFixed(2)} USDC
+                    <button onClick={fetchBalance} className="text-gray-300 hover:text-white transition-colors" title="Refresh balance">🔄</button>
+                  </span>
+                </div>
+                <button onClick={disconnectWallet} className="text-gray-300 hover:text-white">🔌</button>
               </div>
-              <button onClick={disconnectWallet} className="text-gray-300 hover:text-white">🔌</button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </nav>
 
       <div className="relative z-10 text-center pt-8 pb-6 px-4">
         <h1 className="text-4xl sm:text-5xl font-black mb-2 bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-lg">USDC Payments</h1>
-        <p className="text-gray-300 text-sm">Send and receive payment requests on Arc L1</p>
+        <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Send and receive payment requests on Arc L1</p>
       </div>
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 pb-20">
         <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-white/5 backdrop-blur-md rounded-2xl p-5 border border-white/10 hover:border-pink-500/50 transition hover:scale-[1.02]">
+          <div className={`${cardBg} backdrop-blur-md rounded-2xl p-5 border ${borderClass} hover:border-pink-500/50 transition hover:scale-[1.02]`}>
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">📝 Create Request</h2>
             <div className="space-y-4">
-              <input type="text" placeholder="What's it for?" value={desc} onChange={(e) => setDesc(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500" />
-              <input type="number" placeholder="Amount (USDC)" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500" />
+              <input type="text" placeholder="What's it for?" value={desc} onChange={(e) => setDesc(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition`} />
+              <input type="number" placeholder="Amount (USDC)" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition`} />
               <button onClick={createRequest} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-pink-600 to-purple-600 hover:scale-105 transition disabled:opacity-50">
                 {loading === 'Creating request...' ? 'Creating...' : '✨ Create Request'}
               </button>
             </div>
           </div>
 
-          <div className="bg-white/5 backdrop-blur-md rounded-2xl p-5 border border-white/10 hover:border-cyan-500/50 transition hover:scale-[1.02]">
+          <div className={`${cardBg} backdrop-blur-md rounded-2xl p-5 border ${borderClass} hover:border-cyan-500/50 transition hover:scale-[1.02]`}>
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">💸 Pay Request</h2>
             <div className="space-y-4">
-              <input type="text" placeholder="Request ID (0x...)" value={payId} onChange={(e) => setPayId(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-cyan-500" />
+              <input type="text" placeholder="Request ID (0x...)" value={payId} onChange={(e) => setPayId(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-cyan-500 transition`} />
               {gasEstimate && (
                 <div className="text-xs text-gray-400 text-center">⛽ Estimated gas: {gasEstimate}</div>
               )}
@@ -294,8 +363,18 @@ export default function Home() {
         </div>
 
         {wallet && (
-          <div className="mt-10 bg-white/5 backdrop-blur-md rounded-2xl p-5 border border-white/10">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">📋 My Requests</h2>
+          <div className={`mt-10 ${cardBg} backdrop-blur-md rounded-2xl p-5 border ${borderClass}`}>
+            <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
+              <h2 className="text-lg font-semibold flex items-center gap-2">📋 My Requests</h2>
+              <div className="flex gap-2">
+                <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500`} />
+                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500`}>
+                  <option value="all">All</option>
+                  <option value="pending">Pending</option>
+                  <option value="paid">Paid</option>
+                </select>
+              </div>
+            </div>
             {isFetching ? (
               <div className="space-y-3">
                 {[1,2,3].map((i) => (
@@ -305,11 +384,11 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-            ) : myRequests.length === 0 ? (
-              <p className="text-gray-400 text-sm text-center py-6">No requests yet. Create one above!</p>
+            ) : filteredRequests.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-6">No matching requests.</p>
             ) : (
               <div className="space-y-3">
-                {myRequests.map((req, idx) => (
+                {filteredRequests.map((req, idx) => (
                   <div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition hover:scale-[1.01]">
                     <div className="flex flex-wrap justify-between items-start gap-2">
                       <div className="flex-1 min-w-0">
@@ -317,7 +396,9 @@ export default function Home() {
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                           <p className="text-xs text-gray-400 font-mono truncate max-w-[150px] sm:max-w-[300px]">{truncateHash(req.id)}</p>
                           <button onClick={() => copyToClipboard(req.id)} className="text-gray-500 hover:text-cyan-400 transition text-xs">📋</button>
-                          <a href={`https://testnet.arcscan.app/tx/${req.id}`} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-400 hover:text-cyan-300 transition">🔗 View</a>
+                          {txHashes[req.id] && (
+                            <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-400 hover:text-cyan-300 transition">🔗 View Tx</a>
+                          )}
                         </div>
                         <p className="text-xs text-cyan-300 mt-1">{ethers.formatUnits(req.amount, 6)} USDC</p>
                       </div>
