@@ -37,11 +37,24 @@ export default function Home() {
   const [darkMode, setDarkMode] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
 
+  // Load preferences & hash-based magic link
   useEffect(() => {
     const saved = localStorage.getItem('arcpay-darkmode');
     if (saved !== null) setDarkMode(saved === 'true');
     const tutorialSeen = localStorage.getItem('arcpay-tutorial');
     if (!tutorialSeen) setShowTutorial(true);
+    
+    // Magic link via hash (e.g., /#reqId=0x123...)
+    const hash = window.location.hash;
+    if (hash && hash.includes('reqId=')) {
+      const reqId = hash.split('reqId=')[1];
+      if (reqId && reqId.startsWith('0x')) {
+        setPayId(reqId);
+        showToast('✨ Request ID loaded from magic link! Click "Pay Request"', 'success');
+        // Clean hash
+        window.location.hash = '';
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -87,16 +100,6 @@ export default function Home() {
     if (payId && wallet) estimateGas();
     else setGasEstimate(null);
   }, [payId, wallet]);
-
-  // Auto-fill from URL magic link
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const reqId = params.get('reqId');
-    if (reqId && reqId.startsWith('0x')) {
-      setPayId(reqId);
-      showToast('✨ Request ID loaded from magic link! Click "Pay Request"', 'success');
-    }
-  }, []);
 
   async function fetchBalance() {
     if (!wallet) return;
@@ -245,9 +248,9 @@ export default function Home() {
   }
 
   function shareRequestLink(requestId: string) {
-    const url = `${window.location.origin}/pay?reqId=${requestId}`;
+    const url = `${window.location.origin}/#reqId=${requestId}`;
     navigator.clipboard.writeText(url);
-    showToast('🔗 Magic link copied! Share it with payer', 'success');
+    showToast('🔗 Magic link copied! Share with payer', 'success');
   }
 
   function truncateHash(hash: string) {
