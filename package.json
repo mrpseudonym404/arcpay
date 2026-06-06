@@ -15,12 +15,14 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@circle-fin/smart-contract-platform": "^10.6.0",
     "@tailwindcss/postcss": "^4",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "^5"
   }
 }
