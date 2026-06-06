@@ -26,17 +26,17 @@ export async function POST(request: Request) {
     const type = payload.notificationType;
     
     if (type === 'webhooks.test') {
-      await sendTelegramMessage('✅ Webhook aktif! ArcPay monitor siap menerima notifikasi.');
+      await sendTelegramMessage('✅ Webhook aktif! ArcPay monitor siap.');
       return NextResponse.json({ success: true });
     }
     
     if (notification?.eventSignature === 'RequestCreated') {
-      const msg = `📝 New Request Created\nTx: ${notification.txHash?.slice(0,16)}...`;
+      const msg = `📝 <b>New Request Created</b>\nTx: <code>${notification.txHash?.slice(0,16)}...</code>`;
       await sendTelegramMessage(msg);
     }
     
     if (notification?.eventSignature === 'RequestPaid') {
-      const msg = `💰 Request Paid\nTx: ${notification.txHash?.slice(0,16)}...`;
+      const msg = `💰 <b>Request Paid</b>\nTx: <code>${notification.txHash?.slice(0,16)}...</code>`;
       await sendTelegramMessage(msg);
     }
     
