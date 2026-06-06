@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import confetti from 'canvas-confetti';
 
-const CONTRACT_ADDRESS = '0xF0E8582C1Ec5A182C9CF95802499f2eDa5CC03f8';
+// GANTI DENGAN ALAMAT KONTRAK BARU LO (setelah deploy)
+const CONTRACT_ADDRESS = '0x[ALAMAT_KONTRAK_BARU_LO]';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
 const ARC_CHAIN_ID = '0x4CEF52';
 
@@ -11,7 +12,9 @@ const CONTRACT_ABI = [
   'function createRequest(string description, uint256 amount) returns (bytes32)',
   'function payRequest(bytes32 id) external payable',
   'function getRequests(address user) view returns (bytes32[])',
-  'function requests(bytes32) view returns (address creator, string description, uint256 amount, bool paid)'
+  'function requests(bytes32) view returns (address creator, string description, uint256 amount, bool paid)',
+  'function getPayerHistory(address payer) view returns (bytes32[], uint256[])',
+  'function getPayerHistoryWithDetails(address payer) view returns (bytes32[], uint256[], string[], bool[])'
 ];
 
 const USDC_ABI = [
@@ -27,8 +30,10 @@ export default function Home() {
   const [payId, setPayId] = useState('');
   const [loading, setLoading] = useState('');
   const [myRequests, setMyRequests] = useState<any[]>([]);
+  const [myPayments, setMyPayments] = useState<any[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
+  const [isFetchingPayments, setIsFetchingPayments] = useState(false);
   const [toast, setToast] = useState<{msg: string, type: 'success' | 'error', txHash?: string} | null>(null);
   const [gasEstimate, setGasEstimate] = useState<string | null>(null);
   const [txHashes, setTxHashes] = useState<{[key: string]: string}>({});
@@ -36,6 +41,7 @@ export default function Home() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'paid'>('all');
   const [darkMode, setDarkMode] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [activeTab, setActiveTab] = useState<'requests' | 'payments'>('requests');
 
   useEffect(() => {
     const saved = localStorage.getItem('arcpay-darkmode');
@@ -66,6 +72,7 @@ export default function Home() {
         setWallet('');
         setBalance('0');
         setMyRequests([]);
+        setMyPayments([]);
       } else if (accounts[0] !== wallet) {
         setWallet(accounts[0]);
       }
@@ -90,6 +97,7 @@ export default function Home() {
     if (wallet) {
       fetchBalance();
       fetchMyRequests();
+      fetchMyPayments();
     }
   }, [wallet]);
 
@@ -108,6 +116,31 @@ export default function Home() {
     } catch (err) {
       console.error(err);
     }
+  }
+
+  async function fetchMyPayments() {
+    if (!wallet) return;
+    setIsFetchingPayments(true);
+    try {
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+      
+      const [requestIds, amounts, descriptions, paidStatus] = await contract.getPayerHistoryWithDetails(wallet);
+      
+      const paymentData = requestIds.map((id: string, idx: number) => ({
+        id: id,
+        amount: ethers.formatUnits(amounts[idx], 18),
+        description: descriptions[idx],
+        status: paidStatus[idx] ? 'completed' : 'pending',
+        timestamp: new Date().toISOString()
+      }));
+      
+      setMyPayments(paymentData);
+    } catch (err) {
+      console.error(err);
+      setMyPayments([]);
+    }
+    setIsFetchingPayments(false);
   }
 
   async function fetchMyRequests() {
@@ -187,6 +220,7 @@ export default function Home() {
     setWallet('');
     setBalance('0');
     setMyRequests([]);
+    setMyPayments([]);
     setTxHashes({});
     setSearchTerm('');
     setFilterStatus('all');
@@ -230,6 +264,7 @@ export default function Home() {
       setTxHashes(prev => ({ ...prev, [payId]: txHash }));
       setPayId('');
       await fetchMyRequests();
+      await fetchMyPayments();
       await fetchBalance();
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
       showToast('🎉 Payment sent! Balance updated', 'success', txHash);
@@ -241,7 +276,7 @@ export default function Home() {
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text);
-    showToast('📋 Request ID copied! Share it with payer', 'success');
+    showToast('📋 Request ID copied! Share with payer', 'success');
   }
 
   function shareRequestLink(requestId: string) {
@@ -277,7 +312,6 @@ export default function Home() {
 
   return (
     <div className={`min-h-screen ${bgClass} ${textClass} font-sans relative overflow-x-hidden transition-all duration-500 animate-gradient`}>
-      
       <style jsx global>{`
         @keyframes gradient {
           0% { background-position: 0% 50%; }
@@ -288,49 +322,7 @@ export default function Home() {
           background-size: 200% 200%;
           animation: gradient 10s ease infinite;
         }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.5s ease-out;
-        }
       `}</style>
-
-      {/* Tutorial Modal */}
-      {showTutorial && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className={`${cardBg} rounded-2xl max-w-md w-full p-6 border ${borderClass}`}>
-            <h3 className="text-2xl font-bold mb-4 text-center">✨ ArcPay Tutorial</h3>
-            <div className="space-y-4 text-sm">
-              <div className="flex gap-3">
-                <span className="w-6 h-6 bg-pink-500 rounded-full flex items-center justify-center text-xs font-bold">1</span>
-                <p><strong>Connect Wallet</strong> — Use Rabby or MetaMask on <span className="text-cyan-400">Arc Testnet</span></p>
-              </div>
-              <div className="flex gap-3">
-                <span className="w-6 h-6 bg-pink-500 rounded-full flex items-center justify-center text-xs font-bold">2</span>
-                <p><strong>Create Request</strong> — Fill description & amount, then click Create</p>
-              </div>
-              <div className="flex gap-3">
-                <span className="w-6 h-6 bg-pink-500 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-                <p><strong>Share ID</strong> — Click <span className="text-cyan-400">📋 Copy ID</span> or <span className="text-green-400">🔗 Share</span> → Send to payer</p>
-              </div>
-              <div className="flex gap-3">
-                <span className="w-6 h-6 bg-pink-500 rounded-full flex items-center justify-center text-xs font-bold">4</span>
-                <p><strong>Payer Pays</strong> — Paste ID or click magic link → Click Pay Request</p>
-              </div>
-              <div className="flex gap-3">
-                <span className="w-6 h-6 bg-pink-500 rounded-full flex items-center justify-center text-xs font-bold">5</span>
-                <p><strong>Done!</strong> — Status changes to "Paid" and balance updates automatically</p>
-              </div>
-            </div>
-            <p className="text-center text-cyan-400 text-xs mt-4">✨ Happy building on Arc Testnet ✨</p>
-            <button onClick={() => { setShowTutorial(false); localStorage.setItem('arcpay-tutorial', 'true'); }} className="mt-5 w-full py-2 rounded-xl bg-gradient-to-r from-pink-600 to-cyan-600 hover:scale-105 transition font-semibold">
-              🚀 Got it! Start using ArcPay
-            </button>
-          </div>
-        </div>
-      )}
 
       {toast && (
         <div className={`fixed bottom-5 left-5 z-50 px-5 py-3 rounded-xl shadow-2xl backdrop-blur-md text-sm font-medium ${toast.type === 'success' ? 'bg-green-600/80' : 'bg-red-600/80'} text-white animate-fadeIn`}>
@@ -356,7 +348,7 @@ export default function Home() {
             <button onClick={() => setDarkMode(!darkMode)} className="text-xl hover:scale-110 transition" title={darkMode ? 'Light mode' : 'Dark mode'}>
               {darkMode ? '☀️' : '🌙'}
             </button>
-            <button onClick={() => setShowTutorial(true)} className="text-sm hover:scale-110 transition" title="Show Tutorial">❓</button>
+            <button onClick={() => setShowTutorial(true)} className="text-sm hover:scale-110 transition" title="Tutorial">❓</button>
             {!wallet ? (
               <button onClick={connectWallet} disabled={isConnecting} className="px-5 py-2 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:scale-105 transition-transform disabled:opacity-50 flex items-center gap-2">
                 {isConnecting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '✨ Connect Wallet'}
@@ -409,72 +401,153 @@ export default function Home() {
         </div>
 
         {wallet && (
-          <div className={`mt-10 ${cardBg} backdrop-blur-md rounded-2xl p-5 border ${borderClass} transition-all duration-300`}>
-            <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
-              <h2 className="text-lg font-semibold flex items-center gap-2">📋 My Requests</h2>
-              <div className="flex gap-2">
-                <input type="text" placeholder="Search by ID or description..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500 transition-all duration-300`} />
-                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500 transition-all duration-300`}>
-                  <option value="all">All</option>
-                  <option value="pending">Pending</option>
-                  <option value="paid">Paid</option>
-                </select>
-              </div>
+          <>
+            <div className="flex gap-4 mt-10 border-b border-white/10 mb-6">
+              <button 
+                onClick={() => setActiveTab('requests')}
+                className={`pb-2 px-2 transition-all ${activeTab === 'requests' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400'}`}
+              >
+                📋 My Requests
+              </button>
+              <button 
+                onClick={() => setActiveTab('payments')}
+                className={`pb-2 px-2 transition-all ${activeTab === 'payments' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400'}`}
+              >
+                💸 My Payments
+              </button>
             </div>
-            {isFetching ? (
-              <div className="space-y-3">
-                {[1,2,3].map((i) => (
-                  <div key={i} className="bg-black/30 rounded-xl p-4 animate-pulse">
-                    <div className="h-5 bg-white/20 rounded w-1/3 mb-2"></div>
-                    <div className="h-4 bg-white/10 rounded w-2/3"></div>
+
+            {activeTab === 'requests' && (
+              <div className={`${cardBg} backdrop-blur-md rounded-2xl p-5 border ${borderClass} transition-all duration-300`}>
+                <div className="flex flex-wrap justify-between items-center mb-4 gap-3">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">📋 My Requests</h2>
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Search by ID or description..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500 transition-all duration-300`} />
+                    <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500 transition-all duration-300`}>
+                      <option value="all">All</option>
+                      <option value="pending">Pending</option>
+                      <option value="paid">Paid</option>
+                    </select>
                   </div>
-                ))}
-              </div>
-            ) : filteredRequests.length === 0 ? (
-              <div className="text-center py-10">
-                <div className="text-5xl mb-3">📭</div>
-                <p className="text-gray-400 text-sm">No requests yet</p>
-                <p className="text-gray-500 text-xs mt-1">Create your first payment request above</p>
-                <button onClick={() => setShowTutorial(true)} className="mt-3 text-xs text-cyan-400 hover:text-cyan-300 transition">
-                  ❓ Need help? Show tutorial
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredRequests.map((req, idx) => (
-                  <div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all duration-300 hover:scale-[1.01]">
-                    <div className="flex flex-wrap justify-between items-start gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{req.description}</p>
-                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                          <p className="text-xs text-gray-400 font-mono truncate max-w-[120px] sm:max-w-[250px]">{truncateHash(req.id)}</p>
-                          <button onClick={() => copyToClipboard(req.id)} className="bg-gray-700 hover:bg-cyan-600 px-2 py-1 rounded text-xs transition-all duration-300 flex items-center gap-1" title="Copy Request ID">
-                            📋 <span className="hidden sm:inline">Copy ID</span>
-                          </button>
-                          <button onClick={() => shareRequestLink(req.id)} className="bg-gray-700 hover:bg-green-600 px-2 py-1 rounded text-xs transition-all duration-300 flex items-center gap-1" title="Share magic link">
-                            🔗 <span className="hidden sm:inline">Share</span>
-                          </button>
-                          {txHashes[req.id] && (
-                            <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-400 hover:text-cyan-300 transition">🔍 Tx</a>
-                          )}
+                </div>
+                {isFetching ? (
+                  <div className="space-y-3">
+                    {[1,2,3].map((i) => (
+                      <div key={i} className="bg-black/30 rounded-xl p-4 animate-pulse">
+                        <div className="h-5 bg-white/20 rounded w-1/3 mb-2"></div>
+                        <div className="h-4 bg-white/10 rounded w-2/3"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredRequests.length === 0 ? (
+                  <div className="text-center py-10">
+                    <div className="text-5xl mb-3">📭</div>
+                    <p className="text-gray-400 text-sm">No requests yet</p>
+                    <p className="text-gray-500 text-xs mt-1">Create your first payment request above</p>
+                    <button onClick={() => setShowTutorial(true)} className="mt-3 text-xs text-cyan-400 hover:text-cyan-300 transition">
+                      ❓ Need help? Show tutorial
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredRequests.map((req, idx) => (
+                      <div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all duration-300 hover:scale-[1.01]">
+                        <div className="flex flex-wrap justify-between items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{req.description}</p>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              <p className="text-xs text-gray-400 font-mono truncate max-w-[120px] sm:max-w-[250px]">{truncateHash(req.id)}</p>
+                              <button onClick={() => copyToClipboard(req.id)} className="bg-gray-700 hover:bg-cyan-600 px-2 py-1 rounded text-xs transition-all duration-300 flex items-center gap-1">
+                                📋 <span className="hidden sm:inline">Copy ID</span>
+                              </button>
+                              <button onClick={() => shareRequestLink(req.id)} className="bg-gray-700 hover:bg-green-600 px-2 py-1 rounded text-xs transition-all duration-300 flex items-center gap-1">
+                                🔗 <span className="hidden sm:inline">Share</span>
+                              </button>
+                              {txHashes[req.id] && (
+                                <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-400 hover:text-cyan-300 transition">🔍 Tx</a>
+                              )}
+                            </div>
+                            <p className="text-xs text-cyan-300 mt-1">{ethers.formatUnits(req.amount, 18)} USDC</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className={`text-xs px-3 py-1 rounded-full transition-all duration-300 ${req.paid ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'} animate-pulse`}>
+                              {req.paid ? '✅ Paid' : '⏳ Pending'}
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-xs text-cyan-300 mt-1">{ethers.formatUnits(req.amount, 18)} USDC</p>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <span className={`text-xs px-3 py-1 rounded-full transition-all duration-300 ${req.paid ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'} animate-pulse`}>
-                          {req.paid ? '✅ Paid' : '⏳ Pending'}
-                        </span>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             )}
-          </div>
+
+            {activeTab === 'payments' && (
+              <div className={`${cardBg} backdrop-blur-md rounded-2xl p-5 border ${borderClass} transition-all duration-300`}>
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">💸 My Payments</h2>
+                {isFetchingPayments ? (
+                  <div className="space-y-3">
+                    {[1,2,3].map((i) => (
+                      <div key={i} className="bg-black/30 rounded-xl p-4 animate-pulse">
+                        <div className="h-5 bg-white/20 rounded w-1/3 mb-2"></div>
+                        <div className="h-4 bg-white/10 rounded w-2/3"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : myPayments.length === 0 ? (
+                  <div className="text-center py-10">
+                    <div className="text-5xl mb-3">💸</div>
+                    <p className="text-gray-400 text-sm">No payments yet</p>
+                    <p className="text-gray-500 text-xs mt-1">Make a payment using Pay Request above</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {myPayments.map((payment, idx) => (
+                      <div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all duration-300">
+                        <div className="flex flex-wrap justify-between items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{payment.description}</p>
+                            <p className="text-xs text-gray-400 font-mono truncate mt-1">{truncateHash(payment.id)}</p>
+                            <p className="text-xs text-cyan-300 mt-1">{payment.amount} USDC</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-xs bg-green-500/20 text-green-400 px-3 py-1 rounded-full border border-green-500/30">
+                              ✅ Completed
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
 
+        {/* Quick Tutorial Section */}
+        <div className="mt-12 p-5 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 text-center">
+          <h3 className="text-sm font-semibold mb-2 flex items-center justify-center gap-2">
+            <span>📖</span> Quick Tutorial
+          </h3>
+          <div className="text-xs text-gray-400 space-x-3 flex flex-wrap justify-center gap-y-2">
+            <span>1️⃣ Connect Wallet</span>
+            <span>➡️</span>
+            <span>2️⃣ Create Request</span>
+            <span>➡️</span>
+            <span>3️⃣ Copy ID / Share</span>
+            <span>➡️</span>
+            <span>4️⃣ Payer Pays</span>
+            <span>➡️</span>
+            <span>5️⃣ Done ✅</span>
+          </div>
+          <p className="text-[10px] text-gray-500 mt-2">
+            Need more help? Click the ❓ button in the top right.
+          </p>
+        </div>
+
         <div className="text-center mt-10 pt-6 border-t border-white/10">
-          <p className="text-gray-400 text-xs">✦ Built on Arc Testnet — USDC by Circle ✦</p>
+          <p className="text-gray-400 text-xs animate-pulse">✦ Built on Arc Testnet — USDC by Circle ✦</p>
           <p className="text-gray-500 text-[10px] font-mono mt-1">arcpay · {CONTRACT_ADDRESS.slice(0,8)}...{CONTRACT_ADDRESS.slice(-6)}</p>
         </div>
       </div>
