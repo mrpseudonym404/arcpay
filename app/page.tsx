@@ -387,6 +387,7 @@ export default function Home() {
         @keyframes gradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         .animate-gradient { background-size: 200% 200%; animation: gradient 10s ease infinite; }
         .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+        .glow-text { text-shadow: 0 0 10px rgba(6, 182, 212, 0.5), 0 0 20px rgba(6, 182, 212, 0.3), 0 0 30px rgba(236, 72, 153, 0.2); }
       `}</style>
 
       <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Gas fee: ${gasEstimate || '~0.001 USDC'}.`} loading={loading === 'Processing payment...'} />
@@ -584,7 +585,9 @@ export default function Home() {
         </div>
 
         <div className="text-center mt-10 pt-6 border-t border-white/10">
-          <p className="text-gray-400 text-xs">✦ Built on Arc Testnet — USDC by Circle ✦</p>
+          <p className="text-sm font-medium glow-text bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent animate-pulse">
+            ✦ Build on Arc Testnet — USDC by Circle ✦
+          </p>
           <div className="flex justify-center gap-4 mt-2">
             <a href="https://github.com/mrpseudonym404/arcpay" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition">GitHub</a>
             <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition">Twitter</a>
