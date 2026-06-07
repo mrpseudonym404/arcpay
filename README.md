@@ -54,7 +54,8 @@
 
 | Property | Value |
 |----------|-------|
-| **Address** | `0xF0E8582C1Ec5A182C9CF95802499f2eDa5CC03f8` |
+| **Address** | `0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630`
+` |
 | **Network** | Arc Testnet |
 | **Explorer** | [View on ArcScan](https://testnet.arcscan.app/address/0xF0E8582C1Ec5A182C9CF95802499f2eDa5CC03f8) |
 
