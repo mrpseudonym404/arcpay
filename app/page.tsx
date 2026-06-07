@@ -338,7 +338,7 @@ export default function Home() {
       await fetchMyPayments();
       await fetchBalance();
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-      showToast('🎉 Payment sent!', 'success', txHash);
+      showToast('🎉 Payment sent! View transaction:', 'success', txHash);
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
     }
@@ -362,7 +362,7 @@ export default function Home() {
 
   function showToast(msg: string, type: 'success' | 'error', txHash?: string) {
     setToast({ msg, type, txHash });
-    setTimeout(() => setToast(null), 4000);
+    setTimeout(() => setToast(null), 8000);
   }
 
   const filteredRequests = myRequests.filter(req => {
@@ -393,10 +393,15 @@ export default function Home() {
       <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Gas fee: ${gasEstimate || '~0.001 USDC'}.`} loading={loading === 'Processing payment...'} />
 
       {toast && (
-        <div className={`fixed bottom-5 left-5 z-50 px-5 py-3 rounded-xl shadow-2xl backdrop-blur-md text-sm font-medium ${toast.type === 'success' ? 'bg-green-600/80' : 'bg-red-600/80'} text-white animate-fadeIn`}>
+        <div className={`fixed bottom-5 left-5 z-50 px-6 py-4 rounded-xl shadow-2xl backdrop-blur-md text-base font-medium ${toast.type === 'success' ? 'bg-green-600/90' : 'bg-red-600/90'} text-white animate-fadeIn max-w-sm cursor-pointer hover:scale-105 transition-all`} onClick={() => {
+          if (toast.txHash) window.open(`https://testnet.arcscan.app/tx/${toast.txHash}`, '_blank');
+        }}>
           <div className="flex items-center gap-2 flex-wrap">
-            {toast.msg}
-            {toast.txHash && <a href={`https://testnet.arcscan.app/tx/${toast.txHash}`} target="_blank" rel="noopener noreferrer" className="underline text-xs ml-1 hover:text-cyan-200">🔗 View</a>}
+            <span className="text-xl">{toast.type === 'success' ? '✅' : '❌'}</span>
+            <span>{toast.msg}</span>
+            {toast.txHash && (
+              <span className="text-xs underline ml-1 text-cyan-200">🔗 click to view</span>
+            )}
           </div>
         </div>
       )}
@@ -441,6 +446,7 @@ export default function Home() {
           <div className={`${cardBg} rounded-2xl max-w-md w-full p-6 border ${borderClass}`}>
             <h3 className="text-2xl font-bold mb-3 text-center">✨ ArcPay Tutorial</h3>
             <div className="space-y-3 text-sm">
+              <p>0️⃣ <strong>Get USDC first</strong> – Use <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline">Circle Faucet</a> (select Arc Testnet)</p>
               <p>1️⃣ <strong>Connect Wallet</strong> – Rabby/MetaMask on Arc Testnet</p>
               <p>2️⃣ <strong>Create Request</strong> – Fill description & amount → Create</p>
               <p>3️⃣ <strong>Share ID</strong> – Copy ID or click 🔗 Magic Link</p>
@@ -579,9 +585,22 @@ export default function Home() {
         <div className="mt-12 p-5 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 text-center">
           <h3 className="text-sm font-semibold mb-2">📖 Quick Tutorial</h3>
           <div className="text-xs text-gray-400 space-x-3 flex flex-wrap justify-center gap-y-2">
-            <span>1️⃣ Connect</span><span>➡️</span><span>2️⃣ Create</span><span>➡️</span><span>3️⃣ Share ID</span><span>➡️</span><span>4️⃣ Pay</span><span>➡️</span><span>5️⃣ Done ✅</span>
+            <span>0️⃣ Get USDC first</span>
+            <span>➡️</span>
+            <span>1️⃣ Connect</span>
+            <span>➡️</span>
+            <span>2️⃣ Create</span>
+            <span>➡️</span>
+            <span>3️⃣ Share ID</span>
+            <span>➡️</span>
+            <span>4️⃣ Pay</span>
+            <span>➡️</span>
+            <span>5️⃣ Done ✅</span>
           </div>
-          <p className="text-[10px] text-gray-500 mt-2">❓ Click the ❓ button for full tutorial</p>
+          <p className="text-[10px] text-gray-500 mt-2">
+            💰 Need USDC? Get from <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline">Circle Faucet</a> (select Arc Testnet)
+          </p>
+          <p className="text-[10px] text-gray-500 mt-1">❓ Click the ❓ button for full tutorial</p>
         </div>
 
         <div className="text-center mt-10 pt-6 border-t border-white/10">
@@ -591,8 +610,11 @@ export default function Home() {
           <div className="flex justify-center gap-4 mt-2">
             <a href="https://github.com/mrpseudonym404/arcpay" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition">GitHub</a>
             <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition">Twitter</a>
+            <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition">💰 Faucet</a>
           </div>
-          <p className="text-gray-500 text-[10px] font-mono mt-2">arcpay · {CONTRACT_ADDRESS.slice(0,8)}...{CONTRACT_ADDRESS.slice(-6)}</p>
+          <p className="text-gray-500 text-[10px] font-mono mt-2">
+            arcpay · <a href={`https://testnet.arcscan.app/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition">{CONTRACT_ADDRESS.slice(0,8)}...{CONTRACT_ADDRESS.slice(-6)}</a>
+          </p>
         </div>
       </div>
     </div>

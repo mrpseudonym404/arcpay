@@ -40,9 +40,18 @@ Payers can also see their payment history on-chain.
 
 ## Smart contract
 
+<<<<<<< HEAD
 Address: `0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630`
 
 [View on ArcScan](https://testnet.arcscan.app/address/0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630)
+=======
+| Property | Value |
+|----------|-------|
+| **Address** | `0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630`
+` |
+| **Network** | Arc Testnet |
+| **Explorer** | [View on ArcScan](https://testnet.arcscan.app/address/0xF0E8582C1Ec5A182C9CF95802499f2eDa5CC03f8) |
+>>>>>>> a5e618dc105245ec6e6e168fd67ab32efe2a705a
 
 ---
 
