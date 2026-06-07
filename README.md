@@ -1,45 +1,50 @@
-# ⚡ ArcPay — USDC Payment Requests on Arc Testnet
+# ArcPay
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black.svg)](https://arcpay-gamma.vercel.app)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
-[![Arc Testnet](https://img.shields.io/badge/Network-Arc%20Testnet-cyan)](https://arc.network)
+USDC payment requests on Arc Testnet. Create invoices, share magic links, anyone can pay with one click.
 
-> Send and receive USDC payment requests on Arc L1 blockchain. Create invoices, share magic links, let anyone pay you instantly.
-
-**Live Demo:** [arcpay-gamma.vercel.app](https://arcpay-gamma.vercel.app)
+Live: [arcpay-gamma.vercel.app](https://arcpay-gamma.vercel.app)
 
 ---
 
-## ✨ Features
+## What it does
+
+- Connect wallet (Rabby/MetaMask) to Arc Testnet
+- Create a payment request with description and amount
+- Share the request ID or magic link
+- Payer pastes ID or clicks link and pays instantly
+- Payers can see their payment history on-chain
+- Export payment history to CSV
+- Search and filter requests by ID or description
+- Dark/light mode toggle (remember preference)
+- Pagination for requests and payments (5 items per page)
+- Confirmation modal before paying
+- Confetti animation on successful payment
+- Real-time balance update on new blocks
+- Telegram bot notifications for payments (optional)
+
+---
+
+## Features
 
 | Feature | Description |
 |---------|-------------|
-| 🔗 **Connect Wallet** | Rabby / MetaMask on Arc Testnet |
-| 📝 **Create Requests** | Set description & amount in USDC |
-| 🔗 **Magic Links** | One-click payment links (`/#reqId=0x...`) |
-| 💸 **Pay Requests** | Payer pays with native USDC transfer |
-| 🌓 **Dark/Light Mode** | Toggle theme, remembers preference |
-| 🔍 **Search & Filter** | Find by ID or description |
-| 🎉 **Confetti** | Celebratory animation on successful payment |
-| ⛽ **Gas Estimate** | Shows estimated gas before payment |
+| Connect Wallet | Rabby / MetaMask on Arc Testnet |
+| Create Request | Fill description & amount in USDC |
+| Magic Links | One-click payment links (`/#reqId=0x...`) |
+| Pay Request | Instant payment with native USDC |
+| Payment History | On-chain history for payers |
+| Export CSV | Download payment history as CSV |
+| Search & Filter | Find by ID or description |
+| Dark/Light Mode | Toggle theme, saves preference |
+| Pagination | 5 items per page |
+| Confirm Modal | Confirm before paying (avoid mistakes) |
+| Confetti | Celebration animation on success |
+| Auto Refresh | Balance updates on new blocks |
+| Telegram Bot | Real-time payment notifications |
 
 ---
 
-## 🚀 How It Works
-
-### For Creator (Wallet A)
-1. Connect wallet
-2. Fill description & amount → **Create Request**
-3. Copy Request ID or click **🔗** to share magic link
-
-### For Payer (Wallet B)
-1. Connect wallet
-2. Paste Request ID (or click magic link from creator)
-3. Click **Pay Request** → confirm transaction
-
----
-
-## 🛠 Tech Stack
+## Tech stack
 
 - **Framework:** Next.js 15 (App Router)
 - **Blockchain:** Arc Testnet (Chain ID: 5042002)
@@ -47,28 +52,25 @@
 - **Wallet Integration:** ethers.js v6
 - **Styling:** Tailwind CSS
 - **Deployment:** Vercel
+- **Analytics:** Vercel Web Analytics
+- **Notifications:** Telegram Bot (optional)
 
 ---
 
-## 📦 Smart Contract
+## Smart contract
 
 | Property | Value |
 |----------|-------|
-| **Address** | `0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630`
-` |
+| **Address** | `0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630` |
 | **Network** | Arc Testnet |
-| **Explorer** | [View on ArcScan](https://testnet.arcscan.app/address/0xF0E8582C1Ec5A182C9CF95802499f2eDa5CC03f8) |
+| **Explorer** | [View on ArcScan](https://testnet.arcscan.app/address/0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630) |
 
 ---
 
-## 🧪 Local Development
+## Run locally
 
 ```bash
-# Clone the repository
 git clone https://github.com/mrpseudonym404/arcpay.git
-
-# Install dependencies
+cd arcpay
 npm install
-
-# Run development server
 npm run dev
