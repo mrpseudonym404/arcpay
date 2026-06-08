@@ -14,6 +14,8 @@ import {
 const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
 const ARC_CHAIN_ID = '0x4CEF52';
+
+// Badge contracts (already deployed)
 const BADGE_CONTRACT_ADDRESS = '0x00A5879c17b2AeF6790fCb0C13A0a652dF2FA845';
 const DAILY_BADGE_CONTRACT_ADDRESS = '0xA9323D36E49aC6aC49F38aAd431f4C2b69280475';
 
@@ -137,7 +139,7 @@ export default function Home() {
   const [canMintToday, setCanMintToday] = useState(false);
   const [tierName, setTierName] = useState('Unranked');
   const [tierIcon, setTierIcon] = useState('⚪');
-  const [leaderboard, setLeaderboard] = useState<{address: string, points: number}[]>([]);
+  const [leaderboard, setLeaderboard] = useState<{name: string, points: number, isYou?: boolean}[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [requestsPage, setRequestsPage] = useState(1);
   const [paymentsPage, setPaymentsPage] = useState(1);
@@ -240,14 +242,16 @@ export default function Home() {
     } catch (err) { console.error(err); }
   }
 
-  async function fetchLeaderboard() { 
+  async function fetchLeaderboard() {
+    // Updated: No personal wallet address shown
+    const currentWallet = wallet;
     setLeaderboard([
-      { address: '0x6942...c313', points: 1250 },
-      { address: '0x9825...f0c5', points: 980 },
-      { address: '0xabc1...1234', points: 750 },
-      { address: '0xdef4...5678', points: 520 },
-      { address: '0x1234...abcd', points: 310 }
-    ]); 
+      { name: currentWallet === '0x694290534B77C3d845F9C51B6C78724A268dc313' ? '👤 You' : 'Builder 0x6942', points: 1250, isYou: currentWallet === '0x694290534B77C3d845F9C51B6C78724A268dc313' },
+      { name: 'CryptoKing', points: 980 },
+      { name: 'DeFiMaster', points: 750 },
+      { name: 'NFTWhale', points: 520 },
+      { name: 'AirdropHunter', points: 310 }
+    ]);
   }
 
   async function fetchBalance() {
@@ -278,10 +282,12 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
       const ids = await contract.getRequests(wallet);
-      setMyRequests(await Promise.all(ids.map(async (id: string) => {
+      const requestsData = await Promise.all(ids.map(async (id: string) => {
         const req = await contract.requests(id);
         return { id, description: req.description, amount: req.amount, paid: req.paid };
-      })));
+      }));
+      // Reverse order: newest first
+      setMyRequests(requestsData.reverse());
     } catch (err) { console.error(err); }
     setIsFetching(false);
   }
@@ -536,7 +542,18 @@ export default function Home() {
             {activeTab === 'leaderboard' && (
               <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
                 <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Trophy className="w-5 h-5 text-yellow-500" /> Leaderboard</h2>
-                <div className="space-y-2">{leaderboard.map((user, idx) => (<div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/5"><div className="flex items-center gap-3"><span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${idx === 0 ? 'bg-yellow-500/30 text-yellow-400' : idx === 1 ? 'bg-gray-400/30 text-gray-300' : idx === 2 ? 'bg-orange-500/30 text-orange-400' : 'bg-white/10'}`}>{idx + 1}</span><span className="font-mono text-sm">{user.address}</span></div><div className="flex items-center gap-2"><Star className="w-4 h-4 text-yellow-500" /><span className="font-semibold">{user.points}</span></div></div>))}</div>
+                <div className="space-y-2">
+                  {leaderboard.map((user, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/5">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${idx === 0 ? 'bg-yellow-500/30 text-yellow-400' : idx === 1 ? 'bg-gray-400/30 text-gray-300' : idx === 2 ? 'bg-orange-500/30 text-orange-400' : 'bg-white/10'}`}>{idx + 1}</span>
+                        <span className="font-medium text-sm">{user.name}{user.isYou && ' (You)'}</span>
+                      </div>
+                      <div className="flex items-center gap-2"><Star className="w-4 h-4 text-yellow-500" /><span className="font-semibold">{user.points}</span></div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-center text-xs text-gray-500 mt-4">✨ Keep building to climb the ranks! ✨</p>
               </div>
             )}
           </>
