@@ -11,12 +11,9 @@ import {
   BarChart3, User, Gem, Medal, BadgeCheck
 } from 'lucide-react';
 
-// Contract addresses (use your deployed contracts)
 const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
 const ARC_CHAIN_ID = '0x4CEF52';
-
-// Badge contracts (replace with your actual deployed addresses if you have them)
 const BADGE_CONTRACT_ADDRESS = '0x00A5879c17b2AeF6790fCb0C13A0a652dF2FA845';
 const DAILY_BADGE_CONTRACT_ADDRESS = '0xA9323D36E49aC6aC49F38aAd431f4C2b69280475';
 
@@ -243,11 +240,15 @@ export default function Home() {
     } catch (err) { console.error(err); }
   }
 
-  async function fetchLeaderboard() { setLeaderboard([
-    { address: '0x6942...c313', points: 1250 }, { address: '0x9825...f0c5', points: 980 },
-    { address: '0xabc1...1234', points: 750 }, { address: '0xdef4...5678', points: 520 },
-    { address: '0x1234...abcd', points: 310 }
-  ]); }
+  async function fetchLeaderboard() { 
+    setLeaderboard([
+      { address: '0x6942...c313', points: 1250 },
+      { address: '0x9825...f0c5', points: 980 },
+      { address: '0xabc1...1234', points: 750 },
+      { address: '0xdef4...5678', points: 520 },
+      { address: '0x1234...abcd', points: 310 }
+    ]); 
+  }
 
   async function fetchBalance() {
     if (!wallet) return;
