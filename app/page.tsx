@@ -14,8 +14,6 @@ import {
 const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
 const ARC_CHAIN_ID = '0x4CEF52';
-
-// Badge contracts (already deployed)
 const BADGE_CONTRACT_ADDRESS = '0x00A5879c17b2AeF6790fCb0C13A0a652dF2FA845';
 const DAILY_BADGE_CONTRACT_ADDRESS = '0xA9323D36E49aC6aC49F38aAd431f4C2b69280475';
 
@@ -52,12 +50,12 @@ const USDC_ABI = [
 ];
 
 const badgeConfig = [
-  { id: 0, name: 'First Request', icon: '🎯', color: 'bg-emerald-500' },
-  { id: 1, name: 'First Payment', icon: '💰', color: 'bg-blue-500' },
-  { id: 2, name: '10 Requests', icon: '🏆', color: 'bg-purple-500' },
-  { id: 3, name: '100 USDC Paid', icon: '🐋', color: 'bg-cyan-500' },
-  { id: 4, name: '7 Day Streak', icon: '🔥', color: 'bg-orange-500' },
-  { id: 5, name: 'Legend', icon: '👑', color: 'bg-yellow-500' }
+  { id: 0, name: 'First Request', icon: '🎯', color: 'bg-emerald-500', desc: 'Create your first payment request' },
+  { id: 1, name: 'First Payment', icon: '💰', color: 'bg-blue-500', desc: 'Pay any request' },
+  { id: 2, name: '10 Requests', icon: '🏆', color: 'bg-purple-500', desc: 'Create 10 payment requests' },
+  { id: 3, name: '100 USDC Paid', icon: '🐋', color: 'bg-cyan-500', desc: 'Pay total 100 USDC' },
+  { id: 4, name: '7 Day Streak', icon: '🔥', color: 'bg-orange-500', desc: 'Mint daily badge for 7 days' },
+  { id: 5, name: 'Legend', icon: '👑', color: 'bg-yellow-500', desc: 'Reach 2000 points' }
 ];
 
 const dailyBadgeIcons = ['⚡', '🔥', '🌊', '🪨', '🌱', '🕊️', '⭐'];
@@ -225,7 +223,7 @@ export default function Home() {
       await (await badgeContract.mintDailyBadge()).wait();
       await fetchDailyBadgeStatus(); await fetchTierInfo();
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#fbbf24', '#f59e0b', '#ef4444'] });
-      showToast('🎖️ Daily badge minted! Check your gallery', 'success');
+      showToast('🎖️ Daily badge minted! Come back tomorrow for another one!', 'success');
     } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
     setLoading('');
   }
@@ -243,7 +241,6 @@ export default function Home() {
   }
 
   async function fetchLeaderboard() {
-    // Updated: No personal wallet address shown
     const currentWallet = wallet;
     setLeaderboard([
       { name: currentWallet === '0x694290534B77C3d845F9C51B6C78724A268dc313' ? '👤 You' : 'Builder 0x6942', points: 1250, isYou: currentWallet === '0x694290534B77C3d845F9C51B6C78724A268dc313' },
@@ -286,7 +283,6 @@ export default function Home() {
         const req = await contract.requests(id);
         return { id, description: req.description, amount: req.amount, paid: req.paid };
       }));
-      // Reverse order: newest first
       setMyRequests(requestsData.reverse());
     } catch (err) { console.error(err); }
     setIsFetching(false);
@@ -346,11 +342,22 @@ export default function Home() {
       await tx.wait();
       setDesc(''); setAmount('');
       await fetchMyRequests(); await fetchUserStats();
+      
+      // Award badges safely (don't block main transaction)
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
-        const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
-        await badgeContract.updateStats(wallet, 1, 0);
-        await badgeContract.checkAndAwardBadge(wallet, 0);
-        if (myRequests.length + 1 >= 10) await badgeContract.checkAndAwardBadge(wallet, 2);
+        try {
+          const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
+          const hasFirstBadge = await badgeContract.hasBadge(wallet, 0);
+          if (!hasFirstBadge) {
+            await badgeContract.checkAndAwardBadge(wallet, 0);
+            showToast('🎯 Badge Unlocked: First Request!', 'success');
+          }
+          const hasTenBadges = await badgeContract.hasBadge(wallet, 2);
+          if (!hasTenBadges && myRequests.length + 1 >= 10) {
+            await badgeContract.checkAndAwardBadge(wallet, 2);
+            showToast('🏆 Badge Unlocked: 10 Requests!', 'success');
+          }
+        } catch (badgeError) { console.error("Badge award failed:", badgeError); }
       }
       showToast(`✅ Request created. ${vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)]}`, 'success');
     } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
@@ -372,11 +379,22 @@ export default function Home() {
       await tx.wait();
       setPayId('');
       await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
+      
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
-        const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
-        await badgeContract.updateStats(wallet, 0, Number(ethers.formatUnits(amountInWei, 18)));
-        await badgeContract.checkAndAwardBadge(wallet, 1);
-        await badgeContract.checkAndAwardBadge(wallet, 4);
+        try {
+          const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
+          const hasFirstPayment = await badgeContract.hasBadge(wallet, 1);
+          if (!hasFirstPayment) {
+            await badgeContract.checkAndAwardBadge(wallet, 1);
+            showToast('💰 Badge Unlocked: First Payment!', 'success');
+          }
+          const totalPaid = myPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0) + parseFloat(ethers.formatUnits(amountInWei, 18));
+          const hasHundredPaid = await badgeContract.hasBadge(wallet, 3);
+          if (!hasHundredPaid && totalPaid >= 100) {
+            await badgeContract.checkAndAwardBadge(wallet, 3);
+            showToast('🐋 Badge Unlocked: 100 USDC Paid!', 'success');
+          }
+        } catch (badgeError) { console.error("Badge award failed:", badgeError); }
       }
       confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ['#10b981', '#06b6d4', '#f43f5e'] });
       showToast(`🎉 Payment sent. ${vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)]}`, 'success');
@@ -499,7 +517,11 @@ export default function Home() {
           <div className={`mt-8 ${cardBg} rounded-2xl p-5 border ${borderClass} flex flex-wrap items-center justify-between gap-4`}>
             <div className="flex items-center gap-4">
               <div className={`text-4xl w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center border border-yellow-500/30`}>{dailyBadgeIcons[todayBadgeId]}</div>
-              <div><div className="flex items-center gap-2"><h3 className="font-semibold">Daily Badge</h3>{dailyStreak > 0 && <span className="text-xs bg-orange-500/30 px-2 py-0.5 rounded-full flex items-center gap-1"><Flame className="w-3 h-3" /> {dailyStreak} day streak</span>}</div><p className="text-xs text-gray-400">Mint 1 badge every day. Streak rewards!</p>{tierName !== 'Unranked' && <p className="text-xs text-cyan-400 mt-1">{tierIcon} {tierName} • {totalBadges} badges collected</p>}</div>
+              <div>
+                <div className="flex items-center gap-2"><h3 className="font-semibold">Daily Badge</h3>{dailyStreak > 0 && <span className="text-xs bg-orange-500/30 px-2 py-0.5 rounded-full flex items-center gap-1"><Flame className="w-3 h-3" /> {dailyStreak} day streak</span>}</div>
+                <p className="text-xs text-gray-400">Mint 1 badge every day. Streak rewards at 7 days!</p>
+                {tierName !== 'Unranked' && <p className="text-xs text-cyan-400 mt-1">{tierIcon} {tierName} • {totalBadges} badges collected</p>}
+              </div>
             </div>
             <button onClick={mintDailyBadge} disabled={!canMintToday || loading !== ''} className={`px-5 py-2 rounded-xl font-medium text-sm transition-all hover:scale-105 flex items-center gap-2 ${canMintToday ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:shadow-lg hover:shadow-yellow-500/30' : 'bg-gray-600/50 cursor-not-allowed'}`}>{canMintToday ? <><Gift className="w-4 h-4" /> Mint Today's Badge</> : <><CheckCircle className="w-4 h-4" /> Already Minted</>}</button>
           </div>
@@ -531,11 +553,34 @@ export default function Home() {
             {activeTab === 'badges' && (
               <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
                 <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Award className="w-5 h-5 text-cyan-400" /> Your Badges</h2>
-                <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-2xl p-5 mb-6 border border-white/10"><div className="flex items-center justify-between flex-wrap gap-3"><div><p className="text-xs text-gray-400">Current Tier</p><p className="text-2xl font-bold flex items-center gap-2">{tierIcon} {tierName}</p></div><div><p className="text-xs text-gray-400">Total Badges</p><p className="text-2xl font-bold">{totalBadges}</p></div><div><p className="text-xs text-gray-400">Daily Streak</p><p className="text-2xl font-bold flex items-center gap-1"><Flame className="w-5 h-5 text-orange-500" /> {dailyStreak}</p></div><div><p className="text-xs text-gray-400">Points</p><p className="text-2xl font-bold flex items-center gap-1"><Star className="w-5 h-5 text-yellow-500" /> {userPoints}</p></div></div></div>
+                
+                {/* How to Earn Badges Guide */}
+                <div className="bg-white/5 rounded-xl p-4 mb-6">
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2"><BadgeCheck className="w-4 h-4 text-cyan-400" /> How to Earn Badges</h3>
+                  <div className="text-xs text-gray-400 space-y-1">
+                    <p>🎯 First Request — Create your first payment request</p>
+                    <p>💰 First Payment — Pay any request</p>
+                    <p>🏆 10 Requests — Create 10 payment requests</p>
+                    <p>🐋 100 USDC Paid — Pay total 100 USDC</p>
+                    <p>🔥 7 Day Streak — Mint daily badge for 7 days straight</p>
+                    <p>👑 Legend — Reach 2000 points</p>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-2xl p-5 mb-6 border border-white/10">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div><p className="text-xs text-gray-400">Current Tier</p><p className="text-2xl font-bold flex items-center gap-2">{tierIcon} {tierName}</p></div>
+                    <div><p className="text-xs text-gray-400">Total Badges</p><p className="text-2xl font-bold">{totalBadges}</p></div>
+                    <div><p className="text-xs text-gray-400">Daily Streak</p><p className="text-2xl font-bold flex items-center gap-1"><Flame className="w-5 h-5 text-orange-500" /> {dailyStreak}</p></div>
+                    <div><p className="text-xs text-gray-400">Points</p><p className="text-2xl font-bold flex items-center gap-1"><Star className="w-5 h-5 text-yellow-500" /> {userPoints}</p></div>
+                  </div>
+                </div>
+
                 <h3 className="font-semibold mb-3 flex items-center gap-2"><Trophy className="w-4 h-4 text-yellow-500" /> Achievements</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-8">{badgeConfig.map((badge, idx) => (<div key={idx} className={`text-center p-3 rounded-xl transition-all ${userBadges[idx] ? `${badge.color}/20 border border-${badge.color.split('-')[1]}-500/30` : 'bg-white/5 border border-white/10 opacity-50'}`}><div className={`text-3xl mb-1 ${userBadges[idx] ? 'animate-pulse' : ''}`}>{badge.icon}</div><p className="text-xs font-medium">{badge.name}</p><p className="text-[10px] text-gray-500 mt-1">{userBadges[idx] ? '✅ Unlocked' : '🔒 Locked'}</p></div>))}</div>
                 <h3 className="font-semibold mb-3 flex items-center gap-2"><Gift className="w-4 h-4 text-yellow-500" /> Daily Badges</h3>
                 <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">{dailyBadgeIcons.map((icon, idx) => (<div key={idx} className="text-center p-2 rounded-lg bg-white/5 border border-white/10"><div className="text-2xl">{icon}</div><p className="text-[10px] mt-1">{dailyBadgeNames[idx]}</p></div>))}</div>
+                <p className="text-center text-xs text-cyan-400 mt-4">✨ Mint a badge every day to increase your streak! ✨</p>
               </div>
             )}
 
