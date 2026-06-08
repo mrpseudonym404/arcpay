@@ -1,8 +1,8 @@
 'use client';
-import { Sparkles, Wallet, Send, Copy, Share2, ExternalLink, Moon, Sun, HelpCircle, Download, Search, ChevronLeft, ChevronRight, CheckCircle, Clock, Award, TrendingUp, Zap, Star, Flame, Gift, Crown, Shield, Target, Trophy, Medal, Gem, BadgeCheck, User, Layers, BarChart3, Menu, Home, LayoutDashboard, Droplet, BookOpen, Github, X, Globe, ShieldCheck, FileText, Cookie } from 'lucide-react';useState, useEffect, useCallback } from 'react';
-import { Sparkles, Wallet, Send, Copy, Share2, ExternalLink, Moon, Sun, HelpCircle, Download, Search, ChevronLeft, ChevronRight, CheckCircle, Clock, Award, TrendingUp, Zap, Star, Flame, Gift, Crown, Shield, Target, Trophy, Medal, Gem, BadgeCheck, User, Layers, BarChart3, Menu, Home, LayoutDashboard, Droplet, BookOpen, Github, X, Globe, ShieldCheck, FileText, Cookie } from 'lucide-react';ethers } from 'ethers';
+import { useState, useEffect, useCallback } from 'react';
+import { ethers } from 'ethers';
 import confetti from 'canvas-confetti';
-import { Sparkles, Wallet, Send, Copy, Share2, ExternalLink, Moon, Sun, HelpCircle, Download, Search, ChevronLeft, ChevronRight, CheckCircle, Clock, Award, TrendingUp, Zap, Star, Flame, Gift, Crown, Shield, Target, Trophy, Medal, Gem, BadgeCheck, User, Layers, BarChart3, Menu, Home, LayoutDashboard, Droplet, BookOpen, Github, X, Globe, ShieldCheck, FileText, Cookie } from 'lucide-react';
+import { 
   Sparkles, Wallet, Send, Copy, Share2, ExternalLink, 
   Moon, Sun, HelpCircle, Download, Search, ChevronLeft, 
   ChevronRight, CheckCircle, Clock, Award, TrendingUp,
@@ -16,7 +16,6 @@ const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
 const ARC_CHAIN_ID = '0x4CEF52';
 
-// BADGE CONTRACTS
 const BADGE_CONTRACT_ADDRESS = '0x00A5879c17b2AeF6790fCb0C13A0a652dF2FA845';
 const DAILY_BADGE_CONTRACT_ADDRESS = '0xA9323D36E49aC6aC49F38aAd431f4C2b69280475';
 
@@ -610,7 +609,7 @@ export default function Home() {
             <button onClick={() => setActiveTab('payments')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'payments' ? 'text-cyan-400' : 'text-gray-400'}`}>
               <Layers className="w-3.5 h-3.5" /> Payments
             </button>
-            <button onClick={() => setActiveTab('badges')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'badges' ? 'text-cyan-400' : 'text-gray-400'}`}>
+            <button onClick={() | setActiveTab('badges')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'badges' ? 'text-cyan-400' : 'text-gray-400'}`}>
               <Award className="w-3.5 h-3.5" /> Badges
             </button>
             <button onClick={() => setActiveTab('leaderboard')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'leaderboard' ? 'text-cyan-400' : 'text-gray-400'}`}>
@@ -971,7 +970,7 @@ export default function Home() {
           </p>
           <div className="flex justify-center gap-4 mt-3 flex-wrap">
             <a href="https://github.com/mrpseudonym404/arcpay" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><Github className="w-3 h-3" /> GitHub</a>
-            <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><X className="w-3 h-3" /> X</a>
+            <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><X className="w-3 h-3" /> Twitter</a>
             <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><Droplet className="w-3 h-3" /> Faucet</a>
           </div>
           <div className="flex justify-center gap-4 mt-2 text-[10px] text-gray-600">
