@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import confetti from 'canvas-confetti';
-import { Sparkles, Wallet, Send, Copy, Share2, ExternalLink, Moon, Sun, HelpCircle, Download, Search, ChevronLeft, ChevronRight, CheckCircle, Clock, Award, Zap, Star, Shield, Trophy, Layers, Home as HomeIcon, Droplet, X, ShieldCheck, FileText, Cookie } from 'lucide-react';
+import { Sparkles, Wallet, Send, Copy, Share2, ExternalLink, Moon, Sun, HelpCircle, Download, Search, ChevronLeft, ChevronRight, CheckCircle, Clock, Award, Zap, Star, Shield, Trophy, Layers, Home as HomeIcon, Droplet, X, ShieldCheck, FileText, Cookie, Menu } from 'lucide-react';
 
 const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
