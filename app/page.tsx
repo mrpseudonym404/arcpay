@@ -78,6 +78,14 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, loading }: {
   );
 };
 
+const vibeQuestions = [
+  "How's your day going?",
+  "You just did something productive.",
+  "What's one good thing that happened today?",
+  "Did you drink water today?",
+  "Keep going 💪"
+];
+
 export default function Home() {
   const [wallet, setWallet] = useState('');
   const [balance, setBalance] = useState('0');
@@ -115,7 +123,7 @@ export default function Home() {
       const reqId = hash.split('reqId=')[1];
       if (reqId && reqId.startsWith('0x')) {
         setPayId(reqId);
-        showToast('✨ Request ID loaded from magic link!', 'success');
+        showToast('✨ Request ID loaded from magic link', 'success');
         window.location.hash = '';
       }
     }
@@ -244,7 +252,7 @@ export default function Home() {
     setIsConnecting(true);
     const { ethereum } = window as any;
     if (!ethereum) {
-      showToast('Install MetaMask or Rabby wallet first!', 'error');
+      showToast('Install MetaMask or Rabby wallet first', 'error');
       setIsConnecting(false);
       return;
     }
@@ -306,7 +314,8 @@ export default function Home() {
       setTxHashes(prev => ({ ...prev, [desc]: txHash }));
       setDesc(''); setAmount('');
       await fetchMyRequests();
-      showToast('✅ Request created! Copy ID below to share', 'success', txHash);
+      const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
+      showToast(`✅ Request created. ${randomVibe}`, 'success', txHash);
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
     }
@@ -338,7 +347,8 @@ export default function Home() {
       await fetchMyPayments();
       await fetchBalance();
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-      showToast('🎉 Payment sent! View transaction:', 'success', txHash);
+      const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
+      showToast(`🎉 Payment sent. ${randomVibe}`, 'success', txHash);
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
     }
@@ -347,13 +357,13 @@ export default function Home() {
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text);
-    showToast('📋 Copied!', 'success');
+    showToast('📋 Copied', 'success');
   }
 
   function shareRequestLink(requestId: string) {
     const url = `${window.location.origin}/#reqId=${requestId}`;
     navigator.clipboard.writeText(url);
-    showToast('🔗 Magic link copied!', 'success');
+    showToast('🔗 Magic link copied', 'success');
   }
 
   function truncateHash(hash: string) {
@@ -362,7 +372,7 @@ export default function Home() {
 
   function showToast(msg: string, type: 'success' | 'error', txHash?: string) {
     setToast({ msg, type, txHash });
-    setTimeout(() => setToast(null), 8000);
+    setTimeout(() => setToast(null), 6000);
   }
 
   const filteredRequests = myRequests.filter(req => {
@@ -411,7 +421,10 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-cyan-500 rounded-lg shadow-lg animate-pulse"></div>
             <span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">ArcPay</span>
-            <span className="text-[10px] font-mono text-gray-400 bg-white/10 px-2 py-0.5 rounded-full">Arc Testnet</span>
+            <span className="text-[10px] font-mono text-gray-400 bg-white/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+              Arc Testnet
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => setDarkMode(!darkMode)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110">
@@ -421,7 +434,7 @@ export default function Home() {
               ❓
             </button>
             {!wallet ? (
-              <button onClick={connectWallet} disabled={isConnecting} className="px-6 py-2.5 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50 flex items-center gap-2">
+              <button onClick={connectWallet} disabled={isConnecting} className="px-6 py-2.5 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50 flex items-center gap-2 active:scale-95">
                 {isConnecting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '✨ Connect'}
               </button>
             ) : (
@@ -473,7 +486,7 @@ export default function Home() {
             <div className="space-y-4">
               <input type="text" placeholder="What's it for? (e.g., 'Website design')" value={desc} onChange={(e) => setDesc(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition`} />
               <input type="number" placeholder="Amount (USDC)" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition`} />
-              <button onClick={createRequest} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-pink-600 to-purple-600 hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50">
+              <button onClick={createRequest} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-pink-600 to-purple-600 hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50 active:scale-95">
                 {loading === 'Creating request...' ? '⏳ Creating...' : '✨ Create Request'}
               </button>
             </div>
@@ -484,7 +497,7 @@ export default function Home() {
             <div className="space-y-4">
               <input type="text" placeholder="Request ID (0x...)" value={payId} onChange={(e) => setPayId(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-cyan-500 transition`} />
               {gasEstimate && <div className="text-xs text-gray-400 text-center">⛽ Estimated gas: {gasEstimate}</div>}
-              <button onClick={handlePayClick} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-cyan-600 to-teal-600 hover:scale-105 transition-all hover:shadow-lg hover:shadow-cyan-500/30 disabled:opacity-50">
+              <button onClick={handlePayClick} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-cyan-600 to-teal-600 hover:scale-105 transition-all hover:shadow-lg hover:shadow-cyan-500/30 disabled:opacity-50 active:scale-95">
                 {loading === 'Processing payment...' ? '⏳ Paying...' : '💸 Pay Request'}
               </button>
             </div>
@@ -605,9 +618,9 @@ export default function Home() {
 
         <div className="text-center mt-10 pt-6 border-t border-white/10">
           <p className="text-sm font-medium glow-text bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent animate-pulse">
-            ✦ Build on Arc Testnet — USDC by Circle ✦
+            ✦ Build on Arc by Circle ✦
           </p>
-          <div className="flex justify-center gap-4 mt-2">
+          <div className="flex justify-center gap-4 mt-2 flex-wrap">
             <a href="https://github.com/mrpseudonym404/arcpay" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition">GitHub</a>
             <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition">Twitter</a>
             <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition">💰 Faucet</a>
