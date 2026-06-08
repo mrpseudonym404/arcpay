@@ -8,7 +8,7 @@ import {
   ChevronRight, CheckCircle, Clock, Award, TrendingUp,
   Zap, Star, Flame, Gift, Crown, Shield, Target, Trophy,
   Medal, Gem, BadgeCheck, User, Layers, BarChart3, Menu,
-  Home, LayoutDashboard, Droplet, BookOpen, Github, Twitter,
+  Home, LayoutDashboard, Droplet, BookOpen, Github, X,
   Globe, ShieldCheck, FileText, Cookie
 } from 'lucide-react';
 
@@ -971,7 +971,7 @@ export default function Home() {
           </p>
           <div className="flex justify-center gap-4 mt-3 flex-wrap">
             <a href="https://github.com/mrpseudonym404/arcpay" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><Github className="w-3 h-3" /> GitHub</a>
-            <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><Twitter className="w-3 h-3" /> Twitter</a>
+            <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><X className="w-3 h-3" /> X</a>
             <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><Droplet className="w-3 h-3" /> Faucet</a>
           </div>
           <div className="flex justify-center gap-4 mt-2 text-[10px] text-gray-600">
