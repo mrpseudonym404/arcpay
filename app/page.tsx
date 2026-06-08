@@ -7,12 +7,18 @@ import {
   Moon, Sun, HelpCircle, Download, Search, ChevronLeft, 
   ChevronRight, CheckCircle, Clock, Award, Zap, Star, 
   Shield, Trophy, Layers, Home, Droplet, X, ShieldCheck, 
-  FileText, Cookie, Menu, BookOpen, Github, Twitter
+  FileText, Cookie, Menu, BookOpen, Gift, Flame, TrendingUp,
+  BarChart3, User, Gem, Medal, BadgeCheck
 } from 'lucide-react';
 
+// Contract addresses (use your deployed contracts)
 const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
 const ARC_CHAIN_ID = '0x4CEF52';
+
+// Badge contracts (replace with your actual deployed addresses if you have them)
+const BADGE_CONTRACT_ADDRESS = '0x00A5879c17b2AeF6790fCb0C13A0a652dF2FA845';
+const DAILY_BADGE_CONTRACT_ADDRESS = '0xA9323D36E49aC6aC49F38aAd431f4C2b69280475';
 
 const CONTRACT_ABI = [
   'function createRequest(string description, uint256 amount) returns (bytes32)',
@@ -22,27 +28,47 @@ const CONTRACT_ABI = [
   'function getPayerHistoryWithDetails(address payer) view returns (bytes32[], uint256[], string[], bool[])'
 ];
 
+const BADGE_ABI = [
+  'function points(address) view returns (uint256)',
+  'function totalRequestsCreated(address) view returns (uint256)',
+  'function totalUSPCPaid(address) view returns (uint256)',
+  'function streakDays(address) view returns (uint256)',
+  'function hasBadge(address, uint8) view returns (bool)',
+  'function checkAndAwardBadge(address, uint8)',
+  'function updateStats(address, uint256, uint256)',
+  'function updateStreak(address)'
+];
+
+const DAILY_BADGE_ABI = [
+  'function mintDailyBadge() external',
+  'function canMintToday(address) view returns (bool)',
+  'function totalBadges(address) view returns (uint256)',
+  'function mintStreak(address) view returns (uint256)',
+  'function getTierInfo(uint256) view returns (string, string)'
+];
+
 const USDC_ABI = [
   'function decimals() view returns (uint8)',
   'function balanceOf(address) view returns (uint256)'
 ];
 
-const vibeQuestions = [
-  "✨ You're doing great!",
-  "💪 Keep building!",
-  "🎉 Another step closer!",
-  "🌟 You're on fire!"
+const badgeConfig = [
+  { id: 0, name: 'First Request', icon: '🎯', color: 'bg-emerald-500' },
+  { id: 1, name: 'First Payment', icon: '💰', color: 'bg-blue-500' },
+  { id: 2, name: '10 Requests', icon: '🏆', color: 'bg-purple-500' },
+  { id: 3, name: '100 USDC Paid', icon: '🐋', color: 'bg-cyan-500' },
+  { id: 4, name: '7 Day Streak', icon: '🔥', color: 'bg-orange-500' },
+  { id: 5, name: 'Legend', icon: '👑', color: 'bg-yellow-500' }
 ];
+
+const dailyBadgeIcons = ['⚡', '🔥', '🌊', '🪨', '🌱', '🕊️', '⭐'];
+const dailyBadgeNames = ['Spark', 'Ember', 'Wave', 'Stone', 'Seed', 'Wing', 'Star'];
+const vibeQuestions = ["✨ You're doing great!", "💪 Keep building!", "🎉 Another step closer!", "🌟 You're on fire!", "💎 Quality work!", "🚀 To the moon!"];
 
 const exportToCSV = (data: any[], filename: string) => {
   if (data.length === 0) return;
   const headers = ['Description', 'Amount (USDC)', 'Request ID', 'Date'];
-  const rows = data.map(item => [
-    `"${item.description.replace(/"/g, '""')}"`,
-    item.amount,
-    item.id,
-    new Date().toLocaleDateString()
-  ]);
+  const rows = data.map(item => [`"${item.description.replace(/"/g, '""')}"`, item.amount, item.id, new Date().toLocaleDateString()]);
   const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -57,20 +83,14 @@ const Pagination = ({ currentPage, totalPages, onPageChange }: { currentPage: nu
   if (totalPages <= 1) return null;
   return (
     <div className="flex justify-center gap-3 mt-5">
-      <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className="px-4 py-1.5 rounded-lg bg-white/10 disabled:opacity-30 hover:bg-white/20 transition-all hover:scale-105 text-sm flex items-center gap-1">
-        <ChevronLeft className="w-3 h-3" /> Prev
-      </button>
+      <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className="px-4 py-1.5 rounded-lg bg-white/10 disabled:opacity-30 hover:bg-white/20 transition-all hover:scale-105 text-sm flex items-center gap-1"><ChevronLeft className="w-3 h-3" /> Prev</button>
       <span className="px-3 py-1.5 text-sm bg-white/5 rounded-lg font-mono">{currentPage} / {totalPages}</span>
-      <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages} className="px-4 py-1.5 rounded-lg bg-white/10 disabled:opacity-30 hover:bg-white/20 transition-all hover:scale-105 text-sm flex items-center gap-1">
-        Next <ChevronRight className="w-3 h-3" />
-      </button>
+      <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages} className="px-4 py-1.5 rounded-lg bg-white/10 disabled:opacity-30 hover:bg-white/20 transition-all hover:scale-105 text-sm flex items-center gap-1">Next <ChevronRight className="w-3 h-3" /></button>
     </div>
   );
 };
 
-const Skeleton = ({ className }: { className: string }) => (
-  <div className={`animate-pulse bg-gradient-to-r from-white/5 via-white/10 to-white/5 rounded ${className}`} />
-);
+const Skeleton = ({ className }: { className: string }) => <div className={`animate-pulse bg-gradient-to-r from-white/5 via-white/10 to-white/5 rounded ${className}`} />;
 
 const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, loading }: { isOpen: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; loading: boolean }) => {
   if (!isOpen) return null;
@@ -109,12 +129,21 @@ export default function Home() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'paid'>('all');
   const [darkMode, setDarkMode] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [activeTab, setActiveTab] = useState<'requests' | 'payments'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'payments' | 'badges' | 'leaderboard'>('requests');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingPayId, setPendingPayId] = useState('');
+  const [userPoints, setUserPoints] = useState(0);
+  const [userStreak, setUserStreak] = useState(0);
+  const [userBadges, setUserBadges] = useState<boolean[]>(Array(6).fill(false));
+  const [totalBadges, setTotalBadges] = useState(0);
+  const [dailyStreak, setDailyStreak] = useState(0);
+  const [canMintToday, setCanMintToday] = useState(false);
+  const [tierName, setTierName] = useState('Unranked');
+  const [tierIcon, setTierIcon] = useState('⚪');
+  const [leaderboard, setLeaderboard] = useState<{address: string, points: number}[]>([]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [requestsPage, setRequestsPage] = useState(1);
   const [paymentsPage, setPaymentsPage] = useState(1);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const itemsPerPage = 5;
 
   useEffect(() => {
@@ -133,22 +162,16 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('arcpay-darkmode', String(darkMode));
-  }, [darkMode]);
+  useEffect(() => { localStorage.setItem('arcpay-darkmode', String(darkMode)); }, [darkMode]);
 
   useEffect(() => {
     const { ethereum } = window as any;
     if (!ethereum) return;
     const handleAccountsChanged = (accounts: string[]) => {
       if (accounts.length === 0) {
-        setWallet('');
-        setBalance('0');
-        setMyRequests([]);
-        setMyPayments([]);
-      } else if (accounts[0] !== wallet) {
-        setWallet(accounts[0]);
-      }
+        setWallet(''); setBalance('0'); setMyRequests([]); setMyPayments([]);
+        setUserPoints(0); setUserStreak(0); setUserBadges(Array(6).fill(false)); setTotalBadges(0); setDailyStreak(0);
+      } else if (accounts[0] !== wallet) setWallet(accounts[0]);
     };
     ethereum.on('accountsChanged', handleAccountsChanged);
     return () => ethereum.removeListener('accountsChanged', handleAccountsChanged);
@@ -158,45 +181,81 @@ export default function Home() {
     if (!wallet) return;
     const { ethereum } = window as any;
     if (!ethereum) return;
-    const handleBlock = async () => {
-      await fetchBalance();
-      await fetchMyRequests();
-    };
+    const handleBlock = async () => { await fetchBalance(); await fetchMyRequests(); await fetchUserStats(); await fetchDailyBadgeStatus(); };
     ethereum.on('block', handleBlock);
     return () => ethereum.removeListener('block', handleBlock);
   }, [wallet]);
 
   useEffect(() => {
-    if (wallet) {
-      fetchBalance();
-      fetchMyRequests();
-      fetchMyPayments();
-    }
+    if (wallet) { fetchBalance(); fetchMyRequests(); fetchMyPayments(); fetchUserStats(); fetchLeaderboard(); fetchDailyBadgeStatus(); fetchTierInfo(); }
   }, [wallet]);
 
-  useEffect(() => {
-    if (payId && wallet) estimateGas();
-    else setGasEstimate(null);
-  }, [payId, wallet]);
+  useEffect(() => { if (payId && wallet) estimateGas(); else setGasEstimate(null); }, [payId, wallet]);
+  useEffect(() => { setRequestsPage(1); }, [myRequests.length, searchTerm, filterStatus]);
+  useEffect(() => { setPaymentsPage(1); }, [myPayments.length]);
 
-  useEffect(() => {
-    setRequestsPage(1);
-  }, [myRequests.length, searchTerm, filterStatus]);
-  
-  useEffect(() => {
-    setPaymentsPage(1);
-  }, [myPayments.length]);
+  async function fetchDailyBadgeStatus() {
+    if (!wallet || DAILY_BADGE_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000') return;
+    try {
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, provider);
+      setCanMintToday(await badgeContract.canMintToday(wallet));
+      setDailyStreak(Number(await badgeContract.mintStreak(wallet)));
+      setTotalBadges(Number(await badgeContract.totalBadges(wallet)));
+    } catch (err) { console.error(err); }
+  }
+
+  async function fetchTierInfo() {
+    if (!wallet || DAILY_BADGE_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000') return;
+    try {
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, provider);
+      const total = await badgeContract.totalBadges(wallet);
+      const [name, icon] = await badgeContract.getTierInfo(Number(total));
+      setTierName(name); setTierIcon(icon);
+    } catch (err) { console.error(err); }
+  }
+
+  async function mintDailyBadge() {
+    if (!canMintToday) { showToast('Already minted today! Come back tomorrow', 'error'); return; }
+    setLoading('Minting badge...');
+    try {
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const signer = await provider.getSigner();
+      const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, signer);
+      await (await badgeContract.mintDailyBadge()).wait();
+      await fetchDailyBadgeStatus(); await fetchTierInfo();
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#fbbf24', '#f59e0b', '#ef4444'] });
+      showToast('🎖️ Daily badge minted! Check your gallery', 'success');
+    } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
+    setLoading('');
+  }
+
+  async function fetchUserStats() {
+    if (!wallet || BADGE_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000') return;
+    try {
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, provider);
+      setUserPoints(Number(await badgeContract.points(wallet)));
+      setUserStreak(Number(await badgeContract.streakDays(wallet)));
+      const badges = await Promise.all(badgeConfig.map(async (b) => await badgeContract.hasBadge(wallet, b.id)));
+      setUserBadges(badges);
+    } catch (err) { console.error(err); }
+  }
+
+  async function fetchLeaderboard() { setLeaderboard([
+    { address: '0x6942...c313', points: 1250 }, { address: '0x9825...f0c5', points: 980 },
+    { address: '0xabc1...1234', points: 750 }, { address: '0xdef4...5678', points: 520 },
+    { address: '0x1234...abcd', points: 310 }
+  ]); }
 
   async function fetchBalance() {
     if (!wallet) return;
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const usdc = new ethers.Contract(USDC_ADDRESS, USDC_ABI, provider);
-      const rawBalance = await usdc.balanceOf(wallet);
-      setBalance(ethers.formatUnits(rawBalance, 6));
-    } catch (err) {
-      console.error(err);
-    }
+      setBalance(ethers.formatUnits(await usdc.balanceOf(wallet), 6));
+    } catch (err) { console.error(err); }
   }
 
   async function fetchMyPayments() {
@@ -206,16 +265,8 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
       const [requestIds, amounts, descriptions] = await contract.getPayerHistoryWithDetails(wallet);
-      const paymentData = requestIds.map((id: string, idx: number) => ({
-        id: id,
-        amount: ethers.formatUnits(amounts[idx], 18),
-        description: descriptions[idx]
-      }));
-      setMyPayments(paymentData);
-    } catch (err) {
-      console.error(err);
-      setMyPayments([]);
-    }
+      setMyPayments(requestIds.map((id: string, idx: number) => ({ id, amount: ethers.formatUnits(amounts[idx], 18), description: descriptions[idx] })));
+    } catch (err) { setMyPayments([]); }
     setIsFetchingPayments(false);
   }
 
@@ -226,14 +277,11 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
       const ids = await contract.getRequests(wallet);
-      const requestsData = await Promise.all(ids.map(async (id: string) => {
+      setMyRequests(await Promise.all(ids.map(async (id: string) => {
         const req = await contract.requests(id);
         return { id, description: req.description, amount: req.amount, paid: req.paid };
-      }));
-      setMyRequests(requestsData);
-    } catch (err) {
-      console.error(err);
-    }
+      })));
+    } catch (err) { console.error(err); }
     setIsFetching(false);
   }
 
@@ -244,62 +292,37 @@ export default function Home() {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
       const gasPrice = await provider.getFeeData();
       const estimate = await contract.payRequest.estimateGas(payId, { value: 1 });
-      const feeInEth = Number(estimate) * Number(gasPrice.gasPrice || 0);
-      const feeInUsdc = (feeInEth / 1e18).toFixed(6);
-      setGasEstimate(`${feeInUsdc} USDC`);
-    } catch (err) {
-      setGasEstimate('N/A');
-    }
+      setGasEstimate(`${(Number(estimate) * Number(gasPrice.gasPrice || 0) / 1e18).toFixed(6)} USDC`);
+    } catch (err) { setGasEstimate('N/A'); }
   }
 
   async function connectWallet() {
     setIsConnecting(true);
     const { ethereum } = window as any;
-    if (!ethereum) {
-      showToast('Install MetaMask or Rabby wallet first', 'error');
-      setIsConnecting(false);
-      return;
-    }
+    if (!ethereum) { showToast('Install MetaMask or Rabby wallet first', 'error'); setIsConnecting(false); return; }
     try {
       await ethereum.request({ method: 'eth_requestAccounts' });
-      try {
-        await ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: ARC_CHAIN_ID }]
-        });
-      } catch (switchError: any) {
-        if (switchError.code === 4902) {
-          await ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: ARC_CHAIN_ID,
-              chainName: 'Arc Testnet',
-              rpcUrls: ['https://rpc.testnet.arc.network'],
-              nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-              blockExplorerUrls: ['https://testnet.arcscan.app']
-            }]
-          });
-        } else throw switchError;
+      try { await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ARC_CHAIN_ID }] }); } catch (switchError: any) {
+        if (switchError.code === 4902) await ethereum.request({ method: 'wallet_addEthereumChain', params: [{ chainId: ARC_CHAIN_ID, chainName: 'Arc Testnet', rpcUrls: ['https://rpc.testnet.arc.network'], nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 }, blockExplorerUrls: ['https://testnet.arcscan.app'] }] });
+        else throw switchError;
       }
       const provider = new ethers.BrowserProvider(ethereum);
       const signer = await provider.getSigner();
       const address = await signer.getAddress();
       setWallet(address);
       showToast(`Connected: ${address.slice(0,6)}...${address.slice(-4)}`, 'success');
-    } catch (err: any) {
-      showToast(err.message?.slice(0, 100), 'error');
-    }
+      if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
+        const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
+        try { await badgeContract.updateStreak(address); } catch(e) {}
+      }
+      await fetchDailyBadgeStatus(); await fetchTierInfo();
+    } catch (err: any) { showToast(err.message?.slice(0, 100), 'error'); }
     setIsConnecting(false);
   }
 
   async function disconnectWallet() {
-    setWallet('');
-    setBalance('0');
-    setMyRequests([]);
-    setMyPayments([]);
-    setTxHashes({});
-    setSearchTerm('');
-    setFilterStatus('all');
+    setWallet(''); setBalance('0'); setMyRequests([]); setMyPayments([]); setTxHashes({}); setSearchTerm(''); setFilterStatus('all');
+    setUserPoints(0); setUserStreak(0); setUserBadges(Array(6).fill(false)); setTotalBadges(0); setDailyStreak(0);
     showToast('Wallet disconnected', 'success');
   }
 
@@ -313,25 +336,21 @@ export default function Home() {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
       const amt = ethers.parseUnits(amount, 18);
       const tx = await contract.createRequest(desc, amt);
-      const receipt = await tx.wait();
-      const txHash = receipt.hash;
-      setTxHashes(prev => ({ ...prev, [desc]: txHash }));
+      await tx.wait();
       setDesc(''); setAmount('');
-      await fetchMyRequests();
-      const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
-      showToast(`✅ Request created. ${randomVibe}`, 'success', txHash);
-    } catch(e: any) {
-      showToast(e.message?.slice(0,60), 'error');
-    }
+      await fetchMyRequests(); await fetchUserStats();
+      if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
+        const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
+        await badgeContract.updateStats(wallet, 1, 0);
+        await badgeContract.checkAndAwardBadge(wallet, 0);
+        if (myRequests.length + 1 >= 10) await badgeContract.checkAndAwardBadge(wallet, 2);
+      }
+      showToast(`✅ Request created. ${vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)]}`, 'success');
+    } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
     setLoading('');
   }
 
-  const handlePayClick = () => {
-    if (!payId) return showToast('Enter Request ID', 'error');
-    setPendingPayId(payId);
-    setShowConfirmModal(true);
-  };
-
+  const handlePayClick = () => { if (!payId) return showToast('Enter Request ID', 'error'); setPendingPayId(payId); setShowConfirmModal(true); };
   const executePay = useCallback(async () => {
     const id = pendingPayId;
     setShowConfirmModal(false);
@@ -343,49 +362,31 @@ export default function Home() {
       const req = await contract.requests(id);
       const amountInWei = req.amount;
       const tx = await contract.payRequest(id, { value: amountInWei, gasLimit: 500000 });
-      const receipt = await tx.wait();
-      const txHash = receipt.hash;
-      setTxHashes(prev => ({ ...prev, [id]: txHash }));
+      await tx.wait();
       setPayId('');
-      await fetchMyRequests();
-      await fetchMyPayments();
-      await fetchBalance();
-      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-      const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
-      showToast(`🎉 Payment sent. ${randomVibe}`, 'success', txHash);
-    } catch(e: any) {
-      showToast(e.message?.slice(0,60), 'error');
-    }
+      await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
+      if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
+        const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
+        await badgeContract.updateStats(wallet, 0, Number(ethers.formatUnits(amountInWei, 18)));
+        await badgeContract.checkAndAwardBadge(wallet, 1);
+        await badgeContract.checkAndAwardBadge(wallet, 4);
+      }
+      confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ['#10b981', '#06b6d4', '#f43f5e'] });
+      showToast(`🎉 Payment sent. ${vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)]}`, 'success');
+    } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
     setLoading('');
   }, [pendingPayId]);
 
-  function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text);
-    showToast('📋 Copied!', 'success');
-  }
+  function copyToClipboard(text: string) { navigator.clipboard.writeText(text); showToast('📋 Copied!', 'success'); }
+  function shareRequestLink(requestId: string) { const url = `${window.location.origin}/#reqId=${requestId}`; navigator.clipboard.writeText(url); showToast('🔗 Magic link copied!', 'success'); }
+  function truncateHash(hash: string) { return `${hash.slice(0,6)}...${hash.slice(-6)}`; }
+  function showToast(msg: string, type: 'success' | 'error', txHash?: string) { setToast({ msg, type, txHash }); setTimeout(() => setToast(null), 6000); }
 
-  function shareRequestLink(requestId: string) {
-    const url = `${window.location.origin}/#reqId=${requestId}`;
-    navigator.clipboard.writeText(url);
-    showToast('🔗 Magic link copied!', 'success');
-  }
-
-  function truncateHash(hash: string) {
-    return `${hash.slice(0,6)}...${hash.slice(-6)}`;
-  }
-
-  function showToast(msg: string, type: 'success' | 'error', txHash?: string) {
-    setToast({ msg, type, txHash });
-    setTimeout(() => setToast(null), 6000);
-  }
-
-  const filteredRequests = myRequests.filter(req => {
-    const matchesSearch = req.description.toLowerCase().includes(searchTerm.toLowerCase()) || req.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || (filterStatus === 'pending' && !req.paid) || (filterStatus === 'paid' && req.paid);
-    return matchesSearch && matchesFilter;
-  });
+  const filteredRequests = myRequests.filter(req => (req.description.toLowerCase().includes(searchTerm.toLowerCase()) || req.id.toLowerCase().includes(searchTerm.toLowerCase())) && (filterStatus === 'all' || (filterStatus === 'pending' && !req.paid) || (filterStatus === 'paid' && req.paid)));
   const paginatedRequests = filteredRequests.slice((requestsPage - 1) * itemsPerPage, requestsPage * itemsPerPage);
   const paginatedPayments = myPayments.slice((paymentsPage - 1) * itemsPerPage, paymentsPage * itemsPerPage);
+  const userBadgeCount = userBadges.filter(b => b).length;
+  const todayBadgeId = new Date().getDay() % 7;
 
   const bgClass = darkMode ? 'bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900' : 'bg-gradient-to-br from-gray-100 via-white to-gray-100';
   const textClass = darkMode ? 'text-white' : 'text-gray-900';
@@ -407,83 +408,42 @@ export default function Home() {
       <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Gas fee: ${gasEstimate || '~0.001 USDC'}.`} loading={loading === 'Processing payment...'} />
 
       {toast && (
-        <div className={`fixed bottom-5 left-5 z-50 px-6 py-4 rounded-xl shadow-2xl backdrop-blur-md text-base font-medium ${toast.type === 'success' ? 'bg-green-600/90' : 'bg-red-600/90'} text-white animate-fadeIn max-w-sm cursor-pointer hover:scale-105 transition-all`} onClick={() => {
-          if (toast.txHash) window.open(`https://testnet.arcscan.app/tx/${toast.txHash}`, '_blank');
-        }}>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xl">{toast.type === 'success' ? '✅' : '❌'}</span>
-            <span>{toast.msg}</span>
-            {toast.txHash && <span className="text-xs underline ml-1 text-cyan-200">🔗 click to view</span>}
-          </div>
+        <div className={`fixed bottom-5 left-5 z-50 px-6 py-4 rounded-xl shadow-2xl backdrop-blur-md text-base font-medium ${toast.type === 'success' ? 'bg-green-600/90' : 'bg-red-600/90'} text-white animate-fadeIn max-w-sm cursor-pointer hover:scale-105 transition-all`} onClick={() => { if (toast.txHash) window.open(`https://testnet.arcscan.app/tx/${toast.txHash}`, '_blank'); }}>
+          <div className="flex items-center gap-2 flex-wrap"><span className="text-xl">{toast.type === 'success' ? '✅' : '❌'}</span><span>{toast.msg}</span>{toast.txHash && <span className="text-xs underline ml-1 text-cyan-200">🔗 click to view</span>}</div>
         </div>
       )}
 
       <nav className={`relative z-20 border-b ${borderClass} ${navBg} backdrop-blur-xl sticky top-0 transition-all duration-300`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-cyan-500 rounded-lg shadow-lg animate-pulse"></div>
-            <span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">ArcPay</span>
-            <span className="text-[10px] font-mono text-gray-400 bg-white/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
-              Arc Testnet
-            </span>
-          </div>
-          
-          {/* Desktop Menu */}
+          <div className="flex items-center gap-2"><div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-cyan-500 rounded-lg shadow-lg animate-pulse"></div><span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">ArcPay</span><span className="text-[10px] font-mono text-gray-400 bg-white/10 px-2 py-0.5 rounded-full flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>Arc Testnet</span></div>
           <div className="hidden md:flex items-center gap-4">
-            <button onClick={() => setActiveTab('requests')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'requests' ? 'text-cyan-400' : 'text-gray-400'}`}>
-              <Layers className="w-3.5 h-3.5" /> Requests
-            </button>
-            <button onClick={() => setActiveTab('payments')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'payments' ? 'text-cyan-400' : 'text-gray-400'}`}>
-              <Send className="w-3.5 h-3.5" /> Payments
-            </button>
-            <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-1">
-              <Droplet className="w-3.5 h-3.5" /> Faucet
-            </a>
+            <button onClick={() => setActiveTab('requests')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'requests' ? 'text-cyan-400' : 'text-gray-400'}`}><Layers className="w-3.5 h-3.5" /> Requests</button>
+            <button onClick={() => setActiveTab('payments')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'payments' ? 'text-cyan-400' : 'text-gray-400'}`}><Send className="w-3.5 h-3.5" /> Payments</button>
+            <button onClick={() => setActiveTab('badges')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'badges' ? 'text-cyan-400' : 'text-gray-400'}`}><Award className="w-3.5 h-3.5" /> Badges</button>
+            <button onClick={() => setActiveTab('leaderboard')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'leaderboard' ? 'text-cyan-400' : 'text-gray-400'}`}><Trophy className="w-3.5 h-3.5" /> Leaderboard</button>
+            <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-1"><Droplet className="w-3.5 h-3.5" /> Faucet</a>
           </div>
-
           <div className="flex items-center gap-3">
-            <button onClick={() => setDarkMode(!darkMode)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110">
-              {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-            <button onClick={() => setShowTutorial(true)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center text-base font-bold hover:scale-110">
-              <HelpCircle className="w-4 h-4" />
-            </button>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center">
-              <Menu className="w-4 h-4" />
-            </button>
+            <button onClick={() => setDarkMode(!darkMode)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110">{darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}</button>
+            <button onClick={() => setShowTutorial(true)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110"><HelpCircle className="w-4 h-4" /></button>
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"><Menu className="w-4 h-4" /></button>
             {!wallet ? (
-              <button onClick={connectWallet} disabled={isConnecting} className="px-6 py-2.5 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50 flex items-center gap-2 active:scale-95">
-                {isConnecting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Wallet className="w-4 h-4" /> Connect</>}
-              </button>
+              <button onClick={connectWallet} disabled={isConnecting} className="px-6 py-2.5 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50 flex items-center gap-2 active:scale-95">{isConnecting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Wallet className="w-4 h-4" /> Connect</>}</button>
             ) : (
               <div className={`flex items-center gap-3 ${cardBg} rounded-full border ${borderClass} px-3 py-1.5`}>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50"></div>
-                  <span className="font-mono text-sm">{wallet.slice(0,6)}...{wallet.slice(-4)}</span>
-                  <span className="text-xs bg-gradient-to-r from-pink-500/30 to-cyan-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    {parseFloat(balance).toFixed(2)} USDC
-                    <button onClick={fetchBalance} className="hover:rotate-180 transition" title="Refresh">🔄</button>
-                  </span>
-                </div>
+                <div className="flex items-center gap-2"><div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50"></div><span className="font-mono text-sm">{wallet.slice(0,6)}...{wallet.slice(-4)}</span><span className="text-xs bg-gradient-to-r from-pink-500/30 to-cyan-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">{parseFloat(balance).toFixed(2)} USDC<button onClick={fetchBalance} className="hover:rotate-180 transition" title="Refresh">🔄</button></span>{totalBadges > 0 && <span className="text-xs bg-yellow-500/30 px-2 py-0.5 rounded-full flex items-center gap-1"><Award className="w-3 h-3" /> {totalBadges}</span>}{userPoints > 0 && <span className="text-xs bg-purple-500/30 px-2 py-0.5 rounded-full flex items-center gap-1"><Star className="w-3 h-3" /> {userPoints}</span>}</div>
                 <button onClick={disconnectWallet} className="text-gray-300 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 transition">🔌</button>
               </div>
             )}
           </div>
         </div>
-        
-        {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-white/10 bg-black/50 backdrop-blur-md p-4 flex flex-col gap-3">
-            <button onClick={() => { setActiveTab('requests'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'requests' ? 'text-cyan-400' : 'text-gray-400'}`}>
-              <Layers className="w-4 h-4" /> Requests
-            </button>
-            <button onClick={() => { setActiveTab('payments'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'payments' ? 'text-cyan-400' : 'text-gray-400'}`}>
-              <Send className="w-4 h-4" /> Payments
-            </button>
-            <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-2">
-              <Droplet className="w-4 h-4" /> Faucet
-            </a>
+            <button onClick={() => { setActiveTab('requests'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'requests' ? 'text-cyan-400' : 'text-gray-400'}`}><Layers className="w-4 h-4" /> Requests</button>
+            <button onClick={() => { setActiveTab('payments'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'payments' ? 'text-cyan-400' : 'text-gray-400'}`}><Send className="w-4 h-4" /> Payments</button>
+            <button onClick={() => { setActiveTab('badges'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'badges' ? 'text-cyan-400' : 'text-gray-400'}`}><Award className="w-4 h-4" /> Badges</button>
+            <button onClick={() => { setActiveTab('leaderboard'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'leaderboard' ? 'text-cyan-400' : 'text-gray-400'}`}><Trophy className="w-4 h-4" /> Leaderboard</button>
+            <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-2"><Droplet className="w-4 h-4" /> Faucet</a>
           </div>
         )}
       </nav>
@@ -501,19 +461,12 @@ export default function Home() {
               <p className="flex items-center gap-2"><span className="w-6 h-6 bg-cyan-500/20 rounded-full flex items-center justify-center text-xs">5️⃣</span> <strong>Done!</strong> – Status "Paid" & balance updates</p>
             </div>
             <p className="text-center text-cyan-400 text-xs mt-3 flex items-center justify-center gap-1"><Sparkles className="w-3 h-3" /> Happy building on Arc Testnet <Sparkles className="w-3 h-3" /></p>
-            <button onClick={() => { setShowTutorial(false); localStorage.setItem('arcpay-tutorial', 'true'); }} className="mt-4 w-full py-2 rounded-xl bg-gradient-to-r from-pink-600 to-cyan-600 hover:scale-105 transition font-semibold">
-              🚀 Got it!
-            </button>
+            <button onClick={() => { setShowTutorial(false); localStorage.setItem('arcpay-tutorial', 'true'); }} className="mt-4 w-full py-2 rounded-xl bg-gradient-to-r from-pink-600 to-cyan-600 hover:scale-105 transition font-semibold">🚀 Got it!</button>
           </div>
         </div>
       )}
 
-      <div className="relative z-10 text-center pt-10 pb-8 px-4">
-        <h1 className="text-5xl sm:text-6xl font-black mb-3 bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-2xl flex items-center justify-center gap-2">
-          USDC <span className="text-white/30 text-4xl">→</span> Payments
-        </h1>
-        <p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Send and receive payment requests on Arc L1</p>
-      </div>
+      <div className="relative z-10 text-center pt-10 pb-8 px-4"><h1 className="text-5xl sm:text-6xl font-black mb-3 bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-2xl flex items-center justify-center gap-2">USDC <span className="text-white/30 text-4xl">→</span> Payments</h1><p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Send and receive payment requests on Arc L1</p></div>
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 pb-20">
         <div className="grid md:grid-cols-2 gap-8">
@@ -522,158 +475,79 @@ export default function Home() {
             <div className="space-y-4">
               <input type="text" placeholder="What's it for? (e.g., 'Website design')" value={desc} onChange={(e) => setDesc(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition`} />
               <input type="number" placeholder="Amount (USDC)" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition`} />
-              <button onClick={createRequest} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-pink-600 to-purple-600 hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-2">
-                {loading === 'Creating request...' ? <><Zap className="w-4 h-4 animate-spin" /> Creating...</> : <><Sparkles className="w-4 h-4" /> Create Request</>}
-              </button>
+              <button onClick={createRequest} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-pink-600 to-purple-600 hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-2">{loading === 'Creating request...' ? <><Zap className="w-4 h-4 animate-spin" /> Creating...</> : <><Sparkles className="w-4 h-4" /> Create Request</>}</button>
             </div>
           </div>
-
           <div className={`${cardBg} rounded-2xl p-6 border ${borderClass} transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-cyan-500/20`}>
             <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Send className="w-5 h-5 text-cyan-400" /> Pay Request</h2>
             <div className="space-y-4">
               <input type="text" placeholder="Request ID (0x...)" value={payId} onChange={(e) => setPayId(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-cyan-500 transition`} />
               {gasEstimate && <div className="text-xs text-gray-400 text-center">⛽ Estimated gas: {gasEstimate}</div>}
-              <button onClick={handlePayClick} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-cyan-600 to-teal-600 hover:scale-105 transition-all hover:shadow-lg hover:shadow-cyan-500/30 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-2">
-                {loading === 'Processing payment...' ? <><Zap className="w-4 h-4 animate-spin" /> Paying...</> : <><Send className="w-4 h-4" /> Pay Request</>}
-              </button>
+              <button onClick={handlePayClick} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-cyan-600 to-teal-600 hover:scale-105 transition-all hover:shadow-lg hover:shadow-cyan-500/30 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-2">{loading === 'Processing payment...' ? <><Zap className="w-4 h-4 animate-spin" /> Paying...</> : <><Send className="w-4 h-4" /> Pay Request</>}</button>
             </div>
           </div>
         </div>
 
         {wallet && (
+          <div className={`mt-8 ${cardBg} rounded-2xl p-5 border ${borderClass} flex flex-wrap items-center justify-between gap-4`}>
+            <div className="flex items-center gap-4">
+              <div className={`text-4xl w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center border border-yellow-500/30`}>{dailyBadgeIcons[todayBadgeId]}</div>
+              <div><div className="flex items-center gap-2"><h3 className="font-semibold">Daily Badge</h3>{dailyStreak > 0 && <span className="text-xs bg-orange-500/30 px-2 py-0.5 rounded-full flex items-center gap-1"><Flame className="w-3 h-3" /> {dailyStreak} day streak</span>}</div><p className="text-xs text-gray-400">Mint 1 badge every day. Streak rewards!</p>{tierName !== 'Unranked' && <p className="text-xs text-cyan-400 mt-1">{tierIcon} {tierName} • {totalBadges} badges collected</p>}</div>
+            </div>
+            <button onClick={mintDailyBadge} disabled={!canMintToday || loading !== ''} className={`px-5 py-2 rounded-xl font-medium text-sm transition-all hover:scale-105 flex items-center gap-2 ${canMintToday ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:shadow-lg hover:shadow-yellow-500/30' : 'bg-gray-600/50 cursor-not-allowed'}`}>{canMintToday ? <><Gift className="w-4 h-4" /> Mint Today's Badge</> : <><CheckCircle className="w-4 h-4" /> Already Minted</>}</button>
+          </div>
+        )}
+
+        {wallet && (
           <>
             <div className="flex gap-6 mt-10 border-b border-white/10 mb-6">
-              <button onClick={() => setActiveTab('requests')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'requests' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}>
-                <Layers className="w-4 h-4" /> My Requests
-              </button>
-              <button onClick={() => setActiveTab('payments')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'payments' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}>
-                <Send className="w-4 h-4" /> My Payments
-                {myPayments.length > 0 && (
-                  <button onClick={() => exportToCSV(myPayments, 'arcpay-payments')} className="ml-2 text-xs bg-cyan-600/50 hover:bg-cyan-600 px-2 py-0.5 rounded-full transition" title="Export CSV">
-                    <Download className="w-3 h-3 inline" /> CSV
-                  </button>
-                )}
-              </button>
+              <button onClick={() => setActiveTab('requests')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'requests' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Layers className="w-4 h-4" /> My Requests</button>
+              <button onClick={() => setActiveTab('payments')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'payments' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Send className="w-4 h-4" /> My Payments{myPayments.length > 0 && <button onClick={() => exportToCSV(myPayments, 'arcpay-payments')} className="ml-2 text-xs bg-cyan-600/50 hover:bg-cyan-600 px-2 py-0.5 rounded-full transition" title="Export CSV"><Download className="w-3 h-3 inline" /> CSV</button>}</button>
+              <button onClick={() => setActiveTab('badges')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'badges' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Award className="w-4 h-4" /> Badges{userBadgeCount > 0 && <span className="text-xs bg-cyan-500/30 px-1.5 py-0.5 rounded-full">{userBadgeCount}</span>}</button>
+              <button onClick={() => setActiveTab('leaderboard')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'leaderboard' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Trophy className="w-4 h-4" /> Leaderboard</button>
             </div>
 
             {activeTab === 'requests' && (
               <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
-                <div className="flex flex-wrap justify-between items-center mb-5 gap-3">
-                  <h2 className="text-xl font-semibold flex items-center gap-2"><Layers className="w-5 h-5 text-cyan-400" /> My Requests</h2>
-                  <div className="flex gap-2">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                      <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputBg} border ${borderClass} rounded-xl pl-8 pr-3 py-1.5 text-sm w-32 sm:w-40 focus:outline-none focus:border-cyan-500`} />
-                    </div>
-                    <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500`}>
-                      <option value="all">All</option>
-                      <option value="pending">Pending</option>
-                      <option value="paid">Paid</option>
-                    </select>
-                  </div>
-                </div>
-                {isFetching ? (
-                  <div className="space-y-3"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div>
-                ) : paginatedRequests.length === 0 ? (
-                  <div className="text-center py-12"><div className="text-6xl mb-3">📭</div><p className="text-gray-400">No requests yet</p><button onClick={() => setShowTutorial(true)} className="mt-3 text-xs text-cyan-400 hover:text-cyan-300">❓ Need help?</button></div>
-                ) : (
-                  <div className="space-y-3">
-                    {paginatedRequests.map((req, idx) => (
-                      <div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all hover:scale-[1.01]">
-                        <div className="flex flex-wrap justify-between items-start gap-2">
-                          <div className="flex-1">
-                            <p className="font-medium truncate">{req.description}</p>
-                            <div className="flex flex-wrap items-center gap-2 mt-1">
-                              <p className="text-xs text-gray-400 font-mono">{truncateHash(req.id)}</p>
-                              <button onClick={() => copyToClipboard(req.id)} className="bg-gray-700 hover:bg-cyan-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Copy className="w-3 h-3" /> Copy</button>
-                              <button onClick={() => shareRequestLink(req.id)} className="bg-gray-700 hover:bg-green-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Share2 className="w-3 h-3" /> Share</button>
-                              {txHashes[req.id] && <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Tx</a>}
-                            </div>
-                            <p className="text-xs text-cyan-300 mt-1">{ethers.formatUnits(req.amount, 18)} USDC</p>
-                          </div>
-                          <span className={`text-xs px-3 py-1 rounded-full border ${req.paid ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>
-                            {req.paid ? <><CheckCircle className="w-3 h-3 inline mr-1" /> Paid</> : <><Clock className="w-3 h-3 inline mr-1" /> Pending</>}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                    <Pagination currentPage={requestsPage} totalPages={Math.ceil(filteredRequests.length / itemsPerPage)} onPageChange={setRequestsPage} />
-                  </div>
-                )}
+                <div className="flex flex-wrap justify-between items-center mb-5 gap-3"><h2 className="text-xl font-semibold flex items-center gap-2"><Layers className="w-5 h-5 text-cyan-400" /> My Requests</h2><div className="flex gap-2"><div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" /><input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputBg} border ${borderClass} rounded-xl pl-8 pr-3 py-1.5 text-sm w-32 sm:w-40 focus:outline-none focus:border-cyan-500`} /></div><select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500`}><option value="all">All</option><option value="pending">Pending</option><option value="paid">Paid</option></select></div></div>
+                {isFetching ? <div className="space-y-3"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div> : paginatedRequests.length === 0 ? <div className="text-center py-12"><div className="text-6xl mb-3">📭</div><p className="text-gray-400">No requests yet</p><button onClick={() => setShowTutorial(true)} className="mt-3 text-xs text-cyan-400 hover:text-cyan-300">❓ Need help?</button></div> : <div className="space-y-3">{paginatedRequests.map((req, idx) => (<div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all hover:scale-[1.01]"><div className="flex flex-wrap justify-between items-start gap-2"><div className="flex-1"><p className="font-medium truncate">{req.description}</p><div className="flex flex-wrap items-center gap-2 mt-1"><p className="text-xs text-gray-400 font-mono">{truncateHash(req.id)}</p><button onClick={() => copyToClipboard(req.id)} className="bg-gray-700 hover:bg-cyan-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Copy className="w-3 h-3" /> Copy</button><button onClick={() => shareRequestLink(req.id)} className="bg-gray-700 hover:bg-green-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Share2 className="w-3 h-3" /> Share</button>{txHashes[req.id] && <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Tx</a>}</div><p className="text-xs text-cyan-300 mt-1">{ethers.formatUnits(req.amount, 18)} USDC</p></div><span className={`text-xs px-3 py-1 rounded-full border ${req.paid ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>{req.paid ? <><CheckCircle className="w-3 h-3 inline mr-1" /> Paid</> : <><Clock className="w-3 h-3 inline mr-1" /> Pending</>}</span></div></div>))}<Pagination currentPage={requestsPage} totalPages={Math.ceil(filteredRequests.length / itemsPerPage)} onPageChange={setRequestsPage} /></div>}
               </div>
             )}
 
             {activeTab === 'payments' && (
               <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
                 <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Send className="w-5 h-5 text-cyan-400" /> My Payments</h2>
-                {isFetchingPayments ? (
-                  <div className="space-y-3"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>
-                ) : paginatedPayments.length === 0 ? (
-                  <div className="text-center py-12"><div className="text-6xl mb-3">💸</div><p className="text-gray-400">No payments yet</p></div>
-                ) : (
-                  <>
-                    <div className="space-y-3">
-                      {paginatedPayments.map((payment, idx) => (
-                        <div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all hover:scale-[1.01]">
-                          <div className="flex flex-wrap justify-between items-start gap-2">
-                            <div className="flex-1">
-                              <p className="font-medium truncate">{payment.description}</p>
-                              <p className="text-xs text-gray-400 font-mono mt-1">{truncateHash(payment.id)}</p>
-                              <p className="text-xs text-cyan-300 mt-1">{payment.amount} USDC</p>
-                            </div>
-                            <span className="text-xs bg-green-500/20 text-green-400 px-3 py-1 rounded-full border border-green-500/30 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <Pagination currentPage={paymentsPage} totalPages={Math.ceil(myPayments.length / itemsPerPage)} onPageChange={setPaymentsPage} />
-                  </>
-                )}
+                {isFetchingPayments ? <div className="space-y-3"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div> : paginatedPayments.length === 0 ? <div className="text-center py-12"><div className="text-6xl mb-3">💸</div><p className="text-gray-400">No payments yet</p></div> : <><div className="space-y-3">{paginatedPayments.map((payment, idx) => (<div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all hover:scale-[1.01]"><div className="flex flex-wrap justify-between items-start gap-2"><div className="flex-1"><p className="font-medium truncate">{payment.description}</p><p className="text-xs text-gray-400 font-mono mt-1">{truncateHash(payment.id)}</p><p className="text-xs text-cyan-300 mt-1">{payment.amount} USDC</p></div><span className="text-xs bg-green-500/20 text-green-400 px-3 py-1 rounded-full border border-green-500/30 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</span></div></div>))}</div><Pagination currentPage={paymentsPage} totalPages={Math.ceil(myPayments.length / itemsPerPage)} onPageChange={setPaymentsPage} /></>}
+              </div>
+            )}
+
+            {activeTab === 'badges' && (
+              <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
+                <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Award className="w-5 h-5 text-cyan-400" /> Your Badges</h2>
+                <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-2xl p-5 mb-6 border border-white/10"><div className="flex items-center justify-between flex-wrap gap-3"><div><p className="text-xs text-gray-400">Current Tier</p><p className="text-2xl font-bold flex items-center gap-2">{tierIcon} {tierName}</p></div><div><p className="text-xs text-gray-400">Total Badges</p><p className="text-2xl font-bold">{totalBadges}</p></div><div><p className="text-xs text-gray-400">Daily Streak</p><p className="text-2xl font-bold flex items-center gap-1"><Flame className="w-5 h-5 text-orange-500" /> {dailyStreak}</p></div><div><p className="text-xs text-gray-400">Points</p><p className="text-2xl font-bold flex items-center gap-1"><Star className="w-5 h-5 text-yellow-500" /> {userPoints}</p></div></div></div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2"><Trophy className="w-4 h-4 text-yellow-500" /> Achievements</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-8">{badgeConfig.map((badge, idx) => (<div key={idx} className={`text-center p-3 rounded-xl transition-all ${userBadges[idx] ? `${badge.color}/20 border border-${badge.color.split('-')[1]}-500/30` : 'bg-white/5 border border-white/10 opacity-50'}`}><div className={`text-3xl mb-1 ${userBadges[idx] ? 'animate-pulse' : ''}`}>{badge.icon}</div><p className="text-xs font-medium">{badge.name}</p><p className="text-[10px] text-gray-500 mt-1">{userBadges[idx] ? '✅ Unlocked' : '🔒 Locked'}</p></div>))}</div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2"><Gift className="w-4 h-4 text-yellow-500" /> Daily Badges</h3>
+                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">{dailyBadgeIcons.map((icon, idx) => (<div key={idx} className="text-center p-2 rounded-lg bg-white/5 border border-white/10"><div className="text-2xl">{icon}</div><p className="text-[10px] mt-1">{dailyBadgeNames[idx]}</p></div>))}</div>
+              </div>
+            )}
+
+            {activeTab === 'leaderboard' && (
+              <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
+                <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Trophy className="w-5 h-5 text-yellow-500" /> Leaderboard</h2>
+                <div className="space-y-2">{leaderboard.map((user, idx) => (<div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/5"><div className="flex items-center gap-3"><span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${idx === 0 ? 'bg-yellow-500/30 text-yellow-400' : idx === 1 ? 'bg-gray-400/30 text-gray-300' : idx === 2 ? 'bg-orange-500/30 text-orange-400' : 'bg-white/10'}`}>{idx + 1}</span><span className="font-mono text-sm">{user.address}</span></div><div className="flex items-center gap-2"><Star className="w-4 h-4 text-yellow-500" /><span className="font-semibold">{user.points}</span></div></div>))}</div>
               </div>
             )}
           </>
         )}
 
-        <div className="mt-12 p-5 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 text-center">
-          <h3 className="text-sm font-semibold mb-2 flex items-center justify-center gap-2"><BookOpen className="w-4 h-4 text-cyan-400" /> Quick Tutorial</h3>
-          <div className="text-xs text-gray-400 space-x-3 flex flex-wrap justify-center gap-y-2">
-            <span>0️⃣ Get USDC first</span>
-            <span>➡️</span>
-            <span>1️⃣ Connect</span>
-            <span>➡️</span>
-            <span>2️⃣ Create</span>
-            <span>➡️</span>
-            <span>3️⃣ Share ID</span>
-            <span>➡️</span>
-            <span>4️⃣ Pay</span>
-            <span>➡️</span>
-            <span>5️⃣ Done ✅</span>
-          </div>
-          <p className="text-[10px] text-gray-500 mt-2 flex items-center justify-center gap-1">
-            💰 Need USDC? Get from <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline flex items-center gap-1"><Droplet className="w-3 h-3" /> Circle Faucet</a> (select Arc Testnet)
-          </p>
-          <p className="text-[10px] text-gray-500 mt-1 flex items-center justify-center gap-1">❓ Click the <HelpCircle className="w-3 h-3" /> button for full tutorial</p>
-        </div>
+        <div className="mt-12 p-5 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 text-center"><h3 className="text-sm font-semibold mb-2 flex items-center justify-center gap-2"><BookOpen className="w-4 h-4 text-cyan-400" /> Quick Tutorial</h3><div className="text-xs text-gray-400 space-x-3 flex flex-wrap justify-center gap-y-2"><span>0️⃣ Get USDC first</span><span>➡️</span><span>1️⃣ Connect</span><span>➡️</span><span>2️⃣ Create</span><span>➡️</span><span>3️⃣ Share ID</span><span>➡️</span><span>4️⃣ Pay</span><span>➡️</span><span>5️⃣ Done ✅</span></div><p className="text-[10px] text-gray-500 mt-2 flex items-center justify-center gap-1">💰 Need USDC? Get from <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline flex items-center gap-1"><Droplet className="w-3 h-3" /> Circle Faucet</a> (select Arc Testnet)</p><p className="text-[10px] text-gray-500 mt-1 flex items-center justify-center gap-1">❓ Click the <HelpCircle className="w-3 h-3" /> button for full tutorial</p></div>
 
         <div className="text-center mt-10 pt-6 border-t border-white/10">
-          <p className="text-sm font-medium glow-text bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent animate-pulse flex items-center justify-center gap-2">
-            ✦ Build on Arc by Circle ✦
-          </p>
-          <div className="flex justify-center gap-4 mt-3 flex-wrap">
-            <a href="https://github.com/mrpseudonym404/arcpay" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><Github className="w-3 h-3" /> GitHub</a>
-            <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><X className="w-3 h-3" /> Twitter</a>
-            <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><Droplet className="w-3 h-3" /> Faucet</a>
-          </div>
-          <div className="flex justify-center gap-4 mt-2 text-[10px] text-gray-600">
-            <a href="/privacy" className="hover:text-cyan-400 transition flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Privacy</a>
-            <span>•</span>
-            <a href="/terms" className="hover:text-cyan-400 transition flex items-center gap-1"><FileText className="w-3 h-3" /> Terms</a>
-            <span>•</span>
-            <a href="/cookies" className="hover:text-cyan-400 transition flex items-center gap-1"><Cookie className="w-3 h-3" /> Cookies</a>
-          </div>
-          <p className="text-gray-500 text-[10px] font-mono mt-2">
-            arcpay · <a href={`https://testnet.arcscan.app/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition flex items-center gap-1 inline-flex"><ExternalLink className="w-3 h-3" /> {CONTRACT_ADDRESS.slice(0,8)}...{CONTRACT_ADDRESS.slice(-6)}</a>
-          </p>
+          <p className="text-sm font-medium glow-text bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent animate-pulse flex items-center justify-center gap-2">✦ Build on Arc by Circle ✦</p>
+          <div className="flex justify-center gap-4 mt-3 flex-wrap"><a href="https://github.com/mrpseudonym404/arcpay" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition">GitHub</a><a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><X className="w-3 h-3" /> Twitter</a><a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><Droplet className="w-3 h-3" /> Faucet</a></div>
+          <div className="flex justify-center gap-4 mt-2 text-[10px] text-gray-600"><a href="/privacy" className="hover:text-cyan-400 transition">Privacy</a><span>•</span><a href="/terms" className="hover:text-cyan-400 transition">Terms</a><span>•</span><a href="/cookies" className="hover:text-cyan-400 transition">Cookies</a></div>
+          <p className="text-gray-500 text-[10px] font-mono mt-2">arcpay · <a href={`https://testnet.arcscan.app/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition">{CONTRACT_ADDRESS.slice(0,8)}...{CONTRACT_ADDRESS.slice(-6)}</a></p>
         </div>
       </div>
     </div>
