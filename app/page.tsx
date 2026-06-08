@@ -1,8 +1,8 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
-import { ethers } from 'ethers';
+import { Sparkles, Wallet, Send, Copy, Share2, ExternalLink, Moon, Sun, HelpCircle, Download, Search, ChevronLeft, ChevronRight, CheckCircle, Clock, Award, TrendingUp, Zap, Star, Flame, Gift, Crown, Shield, Target, Trophy, Medal, Gem, BadgeCheck, User, Layers, BarChart3, Menu, Home, LayoutDashboard, Droplet, BookOpen, Github, X, Globe, ShieldCheck, FileText, Cookie } from 'lucide-react';useState, useEffect, useCallback } from 'react';
+import { Sparkles, Wallet, Send, Copy, Share2, ExternalLink, Moon, Sun, HelpCircle, Download, Search, ChevronLeft, ChevronRight, CheckCircle, Clock, Award, TrendingUp, Zap, Star, Flame, Gift, Crown, Shield, Target, Trophy, Medal, Gem, BadgeCheck, User, Layers, BarChart3, Menu, Home, LayoutDashboard, Droplet, BookOpen, Github, X, Globe, ShieldCheck, FileText, Cookie } from 'lucide-react';ethers } from 'ethers';
 import confetti from 'canvas-confetti';
-import { 
+import { Sparkles, Wallet, Send, Copy, Share2, ExternalLink, Moon, Sun, HelpCircle, Download, Search, ChevronLeft, ChevronRight, CheckCircle, Clock, Award, TrendingUp, Zap, Star, Flame, Gift, Crown, Shield, Target, Trophy, Medal, Gem, BadgeCheck, User, Layers, BarChart3, Menu, Home, LayoutDashboard, Droplet, BookOpen, Github, X, Globe, ShieldCheck, FileText, Cookie } from 'lucide-react';
   Sparkles, Wallet, Send, Copy, Share2, ExternalLink, 
   Moon, Sun, HelpCircle, Download, Search, ChevronLeft, 
   ChevronRight, CheckCircle, Clock, Award, TrendingUp,
