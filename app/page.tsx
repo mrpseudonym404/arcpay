@@ -49,17 +49,17 @@ const USDC_ABI = [
 ];
 
 const badgeConfig = [
-  { id: 0, name: 'First Request', icon: '🎯', color: 'bg-emerald-500', desc: 'Create your first payment request' },
-  { id: 1, name: 'First Payment', icon: '💰', color: 'bg-blue-500', desc: 'Pay any request' },
-  { id: 2, name: '10 Requests', icon: '🏆', color: 'bg-purple-500', desc: 'Create 10 payment requests' },
-  { id: 3, name: '100 USDC Paid', icon: '🐋', color: 'bg-cyan-500', desc: 'Pay total 100 USDC' },
-  { id: 4, name: '7 Day Streak', icon: '🔥', color: 'bg-orange-500', desc: 'Mint daily badge for 7 days' },
-  { id: 5, name: 'Legend', icon: '👑', color: 'bg-yellow-500', desc: 'Reach 2000 points' }
+  { id: 0, name: 'First Request', icon: '🎯', color: 'bg-emerald-500' },
+  { id: 1, name: 'First Payment', icon: '💰', color: 'bg-blue-500' },
+  { id: 2, name: '10 Requests', icon: '🏆', color: 'bg-purple-500' },
+  { id: 3, name: '100 USDC Paid', icon: '🐋', color: 'bg-cyan-500' },
+  { id: 4, name: '7 Day Streak', icon: '🔥', color: 'bg-orange-500' },
+  { id: 5, name: 'Legend', icon: '👑', color: 'bg-yellow-500' }
 ];
 
 const dailyBadgeIcons = ['⚡', '🔥', '🌊', '🪨', '🌱', '🕊️', '⭐'];
 const dailyBadgeNames = ['Spark', 'Ember', 'Wave', 'Stone', 'Seed', 'Wing', 'Star'];
-const vibeQuestions = ["✨ You're doing great!", "💪 Keep building!", "🎉 Another step closer!", "🌟 You're on fire!", "💎 Quality work!", "🚀 To the moon!"];
+const vibeQuestions = ["You're doing great!", "Keep building!", "Another step closer!", "You're on fire!", "Quality work!", "To the moon!"];
 
 const exportToCSV = (data: any[], filename: string) => {
   if (data.length === 0) return;
@@ -201,6 +201,7 @@ export default function Home() {
     if (!wallet) return;
     const { ethereum } = window as any;
     if (!ethereum) return;
+    const handleBlock = async () => { await fetchBalance(); await fetchMyRequests(); await fetchUserStats(); await fetchDailyBadgeStatus(); };
     ethereum.on('block', handleBlock);
     return () => ethereum.removeListener('block', handleBlock);
   }, [wallet]);
@@ -359,15 +360,7 @@ export default function Home() {
       const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
       await badgeContract.mintBadge(pendingBadge.id, { gasLimit: 300000 });
       await new Promise(resolve => setTimeout(resolve, 2000));
-      await fetchDailyBadgeStatus();
-      await fetchTierInfo();
-      // Polling badge status
-      let retries = 0;
-      while (retries < 5) {
-        await new Promise(r => setTimeout(r, 1000));
-        if (userBadges[pendingBadge.id]) break;
-        retries++;
-      }
+      await fetchUserStats();
       await fetchDailyBadgeStatus();
       await fetchTierInfo();
       setShowMintModal(false);
@@ -396,6 +389,7 @@ export default function Home() {
         setShowMintModal(true);
       } else {
         showToast(`✨ ${badgeName} badge already minted!`, 'success');
+        await fetchUserStats();
       }
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
@@ -417,6 +411,7 @@ export default function Home() {
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [desc]: txHash }));
       setDesc(''); setAmount('');
+      await fetchMyRequests(); await fetchUserStats();
       
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
@@ -451,6 +446,7 @@ export default function Home() {
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [id]: txHash }));
       setPayId('');
+      await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
       
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
