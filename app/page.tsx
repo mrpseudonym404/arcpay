@@ -32,12 +32,7 @@ const SIMPLE_BADGE_ABI = [
   'function mintBadge(uint8)',
   'function hasBadge(address, uint8) view returns (bool)',
   'function getPoints(address) view returns (uint256)',
-  'function getUserStats(address) view returns (uint256, uint256, uint256, uint256)',
-];
-  'function awardBadge(address, uint8)',
-  'function checkAndAward(address, uint8)',
-  'function hasBadge(address, uint8) view returns (bool)',
-  'function getPoints(address) view returns (uint256)'
+  'function getUserStats(address) view returns (uint256, uint256, uint256, uint256)'
 ];
 
 const DAILY_BADGE_ABI = [
@@ -341,6 +336,10 @@ export default function Home() {
       const address = await signer.getAddress();
       setWallet(address);
       showToast(`Connected: ${address.slice(0,6)}...${address.slice(-4)}`, 'success');
+      if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
+        const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
+        try { await badgeContract.updateStreak(address); } catch(e) {}
+      }
       await fetchDailyBadgeStatus(); await fetchTierInfo();
     } catch (err: any) { showToast(err.message?.slice(0, 100), 'error'); }
     setIsConnecting(false);
@@ -359,8 +358,7 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
-      await badgeContract.checkAndAward(wallet, pendingBadge.id, { gasLimit: 300000 });
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await badgeContract.mintBadge(pendingBadge.id, { gasLimit: 300000 });
       await fetchUserStats();
       await fetchDailyBadgeStatus();
       await fetchTierInfo();
@@ -368,7 +366,6 @@ export default function Home() {
       setPendingBadge(null);
       showToast(`🎖️ ${pendingBadge.name} badge minted!`, 'success');
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-      
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
     }
@@ -418,6 +415,7 @@ export default function Home() {
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
           const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
+          await badgeContract.updateStats(wallet, 1, 0, { gasLimit: 300000 });
           const hasFirstBadge = await badgeContract.hasBadge(wallet, 0);
           if (!hasFirstBadge) {
             setPendingBadge({ id: 0, name: 'First Request' });
@@ -452,6 +450,7 @@ export default function Home() {
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
           const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
+          await badgeContract.updateStats(wallet, 0, Number(ethers.formatUnits(amountInWei, 18)), { gasLimit: 300000 });
           const hasFirstPayment = await badgeContract.hasBadge(wallet, 1);
           if (!hasFirstPayment) {
             setPendingBadge({ id: 1, name: 'First Payment' });
