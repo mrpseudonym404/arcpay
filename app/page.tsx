@@ -14,7 +14,7 @@ import {
 const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
 const ARC_CHAIN_ID = '0x4CEF52';
-const SIMPLE_BADGE_ADDRESS = '0xEFD53186586EeBedEccD24AF86554650083DDEFd';
+const SIMPLE_BADGE_ADDRESS = '0x4ceB5d7AB432339eCe9Ed41E3B93fF2466834Cd8';
 const DAILY_BADGE_CONTRACT_ADDRESS = '0xA9323D36E49aC6aC49F38aAd431f4C2b69280475';
 
 const CONTRACT_ABI = [
@@ -353,6 +353,10 @@ export default function Home() {
   }
 
   const handleMintBadge = async () => {
+    // Refresh badge list setelah mint
+    await fetchUserStats();
+    await fetchDailyBadgeStatus();
+    await fetchTierInfo();
     if (!pendingBadge) return;
     setLoading('Minting badge...');
     try {
@@ -360,7 +364,7 @@ export default function Home() {
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
       await badgeContract.mintBadge(pendingBadge.id, { gasLimit: 300000 });
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       await fetchUserStats();
       await fetchDailyBadgeStatus();
       await fetchTierInfo();
@@ -498,6 +502,10 @@ export default function Home() {
 
       <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Gas fee: ${gasEstimate || '~0.001 USDC'}.`} loading={loading === 'Processing payment...'} />
       <MintBadgeModal isOpen={showMintModal} onClose={() => { setShowMintModal(false); setPendingBadge(null); }} onMint={handleMintBadge} badgeName={pendingBadge?.name || ''} loading={loading === 'Minting badge...'} />
+    // Refresh badge list setelah mint
+    await fetchUserStats();
+    await fetchDailyBadgeStatus();
+    await fetchTierInfo();
 
       {toast && (
         <div 
