@@ -14,7 +14,7 @@ import {
 const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
 const ARC_CHAIN_ID = '0x4CEF52';
-const SIMPLE_BADGE_ADDRESS = '0xEFD53186586EeBedEccD24AF86554650083DDEFd';
+const SIMPLE_BADGE_ADDRESS = '0x0101E7f1Bec5875d2fa6ba80cd9F42b76d9c3963';
 const DAILY_BADGE_CONTRACT_ADDRESS = '0xA9323D36E49aC6aC49F38aAd431f4C2b69280475';
 
 const CONTRACT_ABI = [
@@ -26,6 +26,14 @@ const CONTRACT_ABI = [
 ];
 
 const SIMPLE_BADGE_ABI = [
+  'function updateStats(address, uint256, uint256)',
+  'function updateStreak(address)',
+  'function checkEligibility(address, uint8) view returns (bool)',
+  'function mintBadge(uint8)',
+  'function hasBadge(address, uint8) view returns (bool)',
+  'function getPoints(address) view returns (uint256)',
+  'function getUserStats(address) view returns (uint256, uint256, uint256, uint256)',
+];
   'function awardBadge(address, uint8)',
   'function checkAndAward(address, uint8)',
   'function hasBadge(address, uint8) view returns (bool)',
