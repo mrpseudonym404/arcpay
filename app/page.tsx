@@ -349,12 +349,12 @@ export default function Home() {
           const hasFirstBadge = await badgeContract.hasBadge(wallet, 0);
           if (!hasFirstBadge) {
             await badgeContract.checkAndAwardBadge(wallet, 0);
-            showToast('🎯 Badge Unlocked: First Request!', 'success');
+            showToast('🎯 Badge Unlocked: First Request! ✨ Check Badges tab ✨', 'success');
           }
           const hasTenBadges = await badgeContract.hasBadge(wallet, 2);
           if (!hasTenBadges && myRequests.length + 1 >= 10) {
             await badgeContract.checkAndAwardBadge(wallet, 2);
-            showToast('🏆 Badge Unlocked: 10 Requests!', 'success');
+            showToast('🏆 Badge Unlocked: 10 Requests! ✨ Check Badges tab ✨', 'success');
           }
         } catch (badgeError) { console.error("Badge award failed:", badgeError); }
       }
@@ -385,13 +385,13 @@ export default function Home() {
           const hasFirstPayment = await badgeContract.hasBadge(wallet, 1);
           if (!hasFirstPayment) {
             await badgeContract.checkAndAwardBadge(wallet, 1);
-            showToast('💰 Badge Unlocked: First Payment!', 'success');
+            showToast('💰 Badge Unlocked: First Payment! ✨ Check Badges tab ✨', 'success');
           }
           const totalPaid = myPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0) + parseFloat(ethers.formatUnits(amountInWei, 18));
           const hasHundredPaid = await badgeContract.hasBadge(wallet, 3);
           if (!hasHundredPaid && totalPaid >= 100) {
             await badgeContract.checkAndAwardBadge(wallet, 3);
-            showToast('🐋 Badge Unlocked: 100 USDC Paid!', 'success');
+            showToast('🐋 Badge Unlocked: 100 USDC Paid! ✨ Check Badges tab ✨', 'success');
           }
         } catch (badgeError) { console.error("Badge award failed:", badgeError); }
       }
@@ -562,12 +562,12 @@ export default function Home() {
                 <div className="bg-white/5 rounded-xl p-4 mb-6">
                   <h3 className="text-sm font-semibold mb-2 flex items-center gap-2"><BadgeCheck className="w-4 h-4 text-cyan-400" /> How to Earn Badges</h3>
                   <div className="text-xs text-gray-400 space-y-1">
-                    <p>🎯 First Request — Create your first payment request</p>
-                    <p>💰 First Payment — Pay any request</p>
-                    <p>🏆 10 Requests — Create 10 payment requests</p>
-                    <p>🐋 100 USDC Paid — Pay total 100 USDC</p>
-                    <p>🔥 7 Day Streak — Mint daily badge for 7 days straight</p>
-                    <p>👑 Legend — Reach 2000 points</p>
+                    <p>🎯 First Request — Create your first payment request → Complete to unlock</p>
+                    <p>💰 First Payment — Pay any request → Complete to unlock</p>
+                    <p>🏆 10 Requests — Create 10 payment requests → Complete to unlock</p>
+                    <p>🐋 100 USDC Paid — Pay total 100 USDC → Complete to unlock</p>
+                    <p>🔥 7 Day Streak — Mint daily badge for 7 days straight → Complete to unlock</p>
+                    <p>👑 Legend — Reach 2000 points → Complete to unlock</p>
                   </div>
                 </div>
                 <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-2xl p-5 mb-6 border border-white/10">
@@ -579,7 +579,7 @@ export default function Home() {
                   </div>
                 </div>
                 <h3 className="font-semibold mb-3 flex items-center gap-2"><Trophy className="w-4 h-4 text-yellow-500" /> Achievements</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-8">{badgeConfig.map((badge, idx) => (<div key={idx} className={`text-center p-3 rounded-xl transition-all ${userBadges[idx] ? `${badge.color}/20 border border-${badge.color.split('-')[1]}-500/30` : 'bg-white/5 border border-white/10 opacity-50'}`}><div className={`text-3xl mb-1 ${userBadges[idx] ? 'animate-pulse' : ''}`}>{badge.icon}</div><p className="text-xs font-medium">{badge.name}</p><p className="text-[10px] text-gray-500 mt-1">{userBadges[idx] ? '✅ Unlocked' : '🔒 Locked'}</p></div>))}</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-8">{badgeConfig.map((badge, idx) => (<div key={idx} className={`text-center p-3 rounded-xl transition-all ${userBadges[idx] ? `${badge.color}/20 border border-${badge.color.split('-')[1]}-500/30` : 'bg-white/5 border border-white/10 opacity-50'}`}><div className={`text-3xl mb-1 ${userBadges[idx] ? 'animate-pulse' : ''}`}>{badge.icon}</div><p className="text-xs font-medium">{badge.name}</p><p className="text-[10px] text-gray-500 mt-1">{userBadges[idx] ? '✅ Unlocked' : '🔒 Locked — Complete task above'}</p></div>))}</div>
                 <h3 className="font-semibold mb-3 flex items-center gap-2"><Gift className="w-4 h-4 text-yellow-500" /> Daily Badges</h3>
                 <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">{dailyBadgeIcons.map((icon, idx) => (<div key={idx} className="text-center p-2 rounded-lg bg-white/5 border border-white/10"><div className="text-2xl">{icon}</div><p className="text-[10px] mt-1">{dailyBadgeNames[idx]}</p></div>))}</div>
                 <p className="text-center text-xs text-cyan-400 mt-4">✨ Mint a badge every day to increase your streak! ✨</p>
@@ -588,7 +588,7 @@ export default function Home() {
 
             {activeTab === 'leaderboard' && (
               <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
-                <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Trophy className="w-5 h-5 text-yellow-500" /> Leaderboard</h2>
+                <h2 className="text-xl font-semibold mb-5 flex-items-center gap-2"><Trophy className="w-5 h-5 text-yellow-500" /> Leaderboard</h2>
                 <div className="space-y-2">
                   {leaderboard.map((user, idx) => (
                     <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/5">
