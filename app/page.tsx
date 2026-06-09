@@ -14,10 +14,9 @@ import {
 const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
 const ARC_CHAIN_ID = '0x4CEF52';
-const SIMPLE_BADGE_ADDRESS = '0x96d5646848424FdB50F19d23BEE7C2E56d033205';
+const SIMPLE_BADGE_ADDRESS = '0x0101E7f1Bec5875d2fa6ba80cd9F42b76d9c3963';
 const DAILY_BADGE_CONTRACT_ADDRESS = '0xA9323D36E49aC6aC49F38aAd431f4C2b69280475';
 
-// ✅ PERBAIKAN: ABI lebih eksplisit
 const CONTRACT_ABI = [
   'function createRequest(string description, uint256 amount) returns (bytes32)',
   'function payRequest(bytes32 id) external payable',
@@ -26,28 +25,27 @@ const CONTRACT_ABI = [
   'function getPayerHistoryWithDetails(address payer) view returns (bytes32[], uint256[], string[], bool[])'
 ];
 
-// ✅ PERBAIKAN: updateStats dengan parameter yang jelas
 const SIMPLE_BADGE_ABI = [
-  'function updateStats(uint256 requestCount, uint256 totalPaid) external',
-  'function updateStreak() external',
-  'function checkEligibility(uint8 badgeId) view returns (bool)',
-  'function mintBadge(uint8 badgeId) external',
-  'function hasBadge(address user, uint8 badgeId) view returns (bool)',
-  'function getPoints(address user) view returns (uint256)',
-  'function getUserStats(address user) view returns (uint256, uint256, uint256, uint256)'
+  'function updateStats(address, uint256, uint256)',
+  'function updateStreak(address)',
+  'function checkEligibility(address, uint8) view returns (bool)',
+  'function mintBadge(uint8)',
+  'function hasBadge(address, uint8) view returns (bool)',
+  'function getPoints(address) view returns (uint256)',
+  'function getUserStats(address) view returns (uint256, uint256, uint256, uint256)'
 ];
 
 const DAILY_BADGE_ABI = [
   'function mintDailyBadge() external',
-  'function canMintToday(address user) view returns (bool)',
-  'function totalBadges(address user) view returns (uint256)',
-  'function mintStreak(address user) view returns (uint256)',
-  'function getTierInfo(uint256 count) view returns (string, string)'
+  'function canMintToday(address) view returns (bool)',
+  'function totalBadges(address) view returns (uint256)',
+  'function mintStreak(address) view returns (uint256)',
+  'function getTierInfo(uint256) view returns (string, string)'
 ];
 
 const USDC_ABI = [
   'function decimals() view returns (uint8)',
-  'function balanceOf(address account) view returns (uint256)'
+  'function balanceOf(address) view returns (uint256)'
 ];
 
 const badgeConfig = [
@@ -212,29 +210,7 @@ export default function Home() {
     if (wallet) { fetchBalance(); fetchMyRequests(); fetchMyPayments(); fetchUserStats(); fetchLeaderboard(); fetchDailyBadgeStatus(); fetchTierInfo(); }
   }, [wallet]);
 
-  // ✅ PERBAIKAN: Gas estimation pakai amount request yang benar
-  useEffect(() => {
-    async function updateGasEstimate() {
-      if (payId && wallet) {
-        try {
-          const provider = new ethers.BrowserProvider((window as any).ethereum);
-          const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-          const req = await contract.requests(payId);
-          const gasPrice = await provider.getFeeData();
-          const estimate = await contract.payRequest.estimateGas(payId, { value: req.amount });
-          const gasCostWei = estimate * (gasPrice.gasPrice || 0n);
-          const gasCostUsdc = Number(ethers.formatUnits(gasCostWei, 18));
-          setGasEstimate(gasCostUsdc.toFixed(6));
-        } catch (err) {
-          setGasEstimate('N/A');
-        }
-      } else {
-        setGasEstimate(null);
-      }
-    }
-    updateGasEstimate();
-  }, [payId, wallet]);
-
+  useEffect(() => { if (payId && wallet) estimateGas(); else setGasEstimate(null); }, [payId, wallet]);
   useEffect(() => { setRequestsPage(1); }, [myRequests.length, searchTerm, filterStatus]);
   useEffect(() => { setPaymentsPage(1); }, [myPayments.length]);
 
@@ -287,10 +263,7 @@ export default function Home() {
     } catch (err) { console.error(err); }
   }
 
-  // ✅ PERBAIKAN: Leaderboard tetap dummy tapi dikasih tau (opsional)
   async function fetchLeaderboard() {
-    // Catatan: Ini masih dummy karena kontrak tidak menyediakan fungsi getLeaderboard
-    // Untuk production, perlu tambahkan fungsi di smart contract
     setLeaderboard([
       { address: '0x71a2...b8e4', points: 1250 },
       { address: '0x83b4...d9f2', points: 980 },
@@ -330,11 +303,22 @@ export default function Home() {
       const ids = await contract.getRequests(wallet);
       const requestsData = await Promise.all(ids.map(async (id: string) => {
         const req = await contract.requests(id);
-        return { id, description: req.description, amount: ethers.formatUnits(req.amount, 18), paid: req.paid };
+        return { id, description: req.description, amount: req.amount, paid: req.paid };
       }));
       setMyRequests(requestsData.reverse());
     } catch (err) { console.error(err); }
     setIsFetching(false);
+  }
+
+  async function estimateGas() {
+    if (!wallet || !payId) return;
+    try {
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+      const gasPrice = await provider.getFeeData();
+      const estimate = await contract.payRequest.estimateGas(payId, { value: 1 });
+      setGasEstimate(`${(Number(estimate) * Number(gasPrice.gasPrice || 0) / 1e18).toFixed(6)} USDC`);
+    } catch (err) { setGasEstimate('N/A'); }
   }
 
   async function connectWallet() {
@@ -354,7 +338,7 @@ export default function Home() {
       showToast(`Connected: ${address.slice(0,6)}...${address.slice(-4)}`, 'success');
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
-        try { await badgeContract.updateStreak(); } catch(e) {}
+        try { await badgeContract.updateStreak(address); } catch(e) {}
       }
       await fetchDailyBadgeStatus(); await fetchTierInfo();
     } catch (err: any) { showToast(err.message?.slice(0, 100), 'error'); }
@@ -432,8 +416,7 @@ export default function Home() {
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
           const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
-          // ✅ PERBAIKAN: Pakai integer 0 untuk totalPaid
-          await badgeContract.updateStats(1, 0, { gasLimit: 500000 });
+          await badgeContract.updateStats(wallet, 1, 0, { gasLimit: 300000 });
           const hasFirstBadge = await badgeContract.hasBadge(wallet, 0);
           if (!hasFirstBadge) {
             setPendingBadge({ id: 0, name: 'First Request' });
@@ -448,7 +431,6 @@ export default function Home() {
   }
 
   const handlePayClick = () => { if (!payId) return showToast('Enter Request ID', 'error'); setPendingPayId(payId); setShowConfirmModal(true); };
-  
   const executePay = useCallback(async () => {
     const id = pendingPayId;
     setShowConfirmModal(false);
@@ -469,8 +451,7 @@ export default function Home() {
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
           const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
-          // ✅ PERBAIKAN: Pakai amountInWei (integer), BUKAN float!
-          await badgeContract.updateStats(0, amountInWei, { gasLimit: 500000 });
+          await badgeContract.updateStats(wallet, 0, Number(ethers.formatUnits(amountInWei, 18)), { gasLimit: 300000 });
           const hasFirstPayment = await badgeContract.hasBadge(wallet, 1);
           if (!hasFirstPayment) {
             setPendingBadge({ id: 1, name: 'First Payment' });
@@ -483,7 +464,7 @@ export default function Home() {
       showToast(`🎉 Payment sent. ${randomVibe}`, 'success', txHash);
     } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
     setLoading('');
-  }, [pendingPayId, wallet]);
+  }, [pendingPayId]);
 
   function copyToClipboard(text: string) { navigator.clipboard.writeText(text); showToast('📋 Copied!', 'success'); }
   function shareRequestLink(requestId: string) { const url = `${window.location.origin}/#reqId=${requestId}`; navigator.clipboard.writeText(url); showToast('🔗 Magic link copied!', 'success'); }
@@ -513,7 +494,7 @@ export default function Home() {
         .glow-text { text-shadow: 0 0 10px rgba(6, 182, 212, 0.5), 0 0 20px rgba(6, 182, 212, 0.3), 0 0 30px rgba(236, 72, 153, 0.2); }
       `}</style>
 
-      <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Estimated gas fee: ${gasEstimate || '~0.001'} USDC`} loading={loading === 'Processing payment...'} />
+      <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Gas fee: ${gasEstimate || '~0.001 USDC'}.`} loading={loading === 'Processing payment...'} />
       <MintBadgeModal isOpen={showMintModal} onClose={() => { setShowMintModal(false); setPendingBadge(null); }} onMint={handleMintBadge} badgeName={pendingBadge?.name || ''} loading={loading === 'Minting badge...'} />
 
       {toast && (
@@ -531,115 +512,194 @@ export default function Home() {
 
       <nav className={`relative z-20 border-b ${borderClass} ${navBg} backdrop-blur-xl sticky top-0 transition-all duration-300`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-3">
-          <div className="flex items-center gap-2"><div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-cyan-500 rounded-lg shadow-lg animate-pulse"></div><span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">ArcPay</span><span className="text-[10px] font-mono bg-white/20 px-1.5 py-0.5 rounded">v4</span></div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all">{darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}</button>
-            {!wallet ? <button onClick={connectWallet} disabled={isConnecting} className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:shadow-lg transition-all text-sm font-medium flex items-center gap-2"><Wallet className="w-4 h-4" />{isConnecting ? 'Connecting...' : 'Connect Wallet'}</button> : <button onClick={disconnectWallet} className="px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-sm">Disconnect</button>}
+          <div className="flex items-center gap-2"><div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-cyan-500 rounded-lg shadow-lg animate-pulse"></div><span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">ArcPay</span><span className="text-[10px] font-mono text-gray-400 bg-white/10 px-2 py-0.5 rounded-full flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>Arc Testnet</span></div>
+          <div className="hidden md:flex items-center gap-4">
+            <button onClick={() => setActiveTab('requests')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'requests' ? 'text-cyan-400' : 'text-gray-400'}`}><Layers className="w-3.5 h-3.5" /> Requests</button>
+            <button onClick={() => setActiveTab('payments')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'payments' ? 'text-cyan-400' : 'text-gray-400'}`}><Send className="w-3.5 h-3.5" /> Payments</button>
+            <button onClick={() => setActiveTab('badges')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'badges' ? 'text-cyan-400' : 'text-gray-400'}`}><Award className="w-3.5 h-3.5" /> Badges</button>
+            <button onClick={() => setActiveTab('leaderboard')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'leaderboard' ? 'text-cyan-400' : 'text-gray-400'}`}><Trophy className="w-3.5 h-3.5" /> Leaderboard</button>
+            <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-1"><Droplet className="w-3.5 h-3.5" /> Faucet</a>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setDarkMode(!darkMode)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110">{darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}</button>
+            <button onClick={() => setShowTutorial(true)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110"><HelpCircle className="w-4 h-4" /></button>
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"><Menu className="w-4 h-4" /></button>
+            {!wallet ? (
+              <button onClick={connectWallet} disabled={isConnecting} className="px-6 py-2.5 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50 flex items-center gap-2 active:scale-95">{isConnecting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Wallet className="w-4 h-4" /> Connect</>}</button>
+            ) : (
+              <div className="flex items-center gap-2 md:gap-3 bg-white/5 rounded-full border border-white/10 px-2 py-1 md:px-3 md:py-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="font-mono text-xs md:text-sm">{wallet.slice(0,6)}...{wallet.slice(-4)}</span>
+                  <span className="text-xs bg-gradient-to-r from-pink-500/30 to-cyan-500/30 px-1.5 py-0.5 rounded-full">{parseFloat(balance).toFixed(2)} USDC</span>
+                  <span className="hidden md:inline-flex text-xs bg-yellow-500/30 px-2 py-0.5 rounded-full items-center gap-1"><Award className="w-3 h-3" /> {totalBadges}</span>
+                  <span className="hidden md:inline-flex text-xs bg-purple-500/30 px-2 py-0.5 rounded-full items-center gap-1"><Star className="w-3 h-3" /> {userPoints}</span>
+                </div>
+                <button onClick={disconnectWallet} className="text-gray-300 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 transition text-sm">🔌</button>
+              </div>
+            )}
           </div>
         </div>
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-white/10 bg-black/50 backdrop-blur-md p-4 flex flex-col gap-3">
+            <button onClick={() => { setActiveTab('requests'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'requests' ? 'text-cyan-400' : 'text-gray-400'}`}><Layers className="w-4 h-4" /> Requests</button>
+            <button onClick={() => { setActiveTab('payments'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'payments' ? 'text-cyan-400' : 'text-gray-400'}`}><Send className="w-4 h-4" /> Payments</button>
+            <button onClick={() => { setActiveTab('badges'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'badges' ? 'text-cyan-400' : 'text-gray-400'}`}><Award className="w-4 h-4" /> Badges</button>
+            <button onClick={() => { setActiveTab('leaderboard'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'leaderboard' ? 'text-cyan-400' : 'text-gray-400'}`}><Trophy className="w-4 h-4" /> Leaderboard</button>
+            <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-2"><Droplet className="w-4 h-4" /> Faucet</a>
+            <button onClick={disconnectWallet} className="mt-2 w-full px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition flex items-center justify-center gap-2 text-sm font-medium">🔌 Disconnect Wallet</button>
+          </div>
+        )}
       </nav>
 
-      <main className="relative z-10 max-w-6xl mx-auto px-4 py-8">
-        {wallet ? (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className={`${cardBg} rounded-2xl p-5 border ${borderClass} backdrop-blur-md shadow-xl`}>
-                <div className="flex items-center gap-3 mb-2"><Wallet className="w-5 h-5 text-cyan-400" /><span className="text-sm uppercase tracking-wider opacity-70">Wallet</span></div>
-                <p className="font-mono text-sm break-all">{wallet.slice(0,8)}...{wallet.slice(-6)}</p>
-                <div className="mt-3 flex items-center gap-2 text-2xl font-bold"><Droplet className="w-6 h-6 text-cyan-400" />{balance} USDC</div>
-              </div>
-              <div className={`${cardBg} rounded-2xl p-5 border ${borderClass} backdrop-blur-md shadow-xl`}>
-                <div className="flex items-center gap-3 mb-2"><Award className="w-5 h-5 text-purple-400" /><span className="text-sm uppercase tracking-wider opacity-70">Badges & Points</span></div>
-                <div className="flex justify-between items-center"><span className="text-2xl font-bold">{userPoints} pts</span><span className="text-sm">{userBadgeCount}/6 badges</span></div>
-                <div className="mt-2 text-sm opacity-70">{tierIcon} {tierName}</div>
-              </div>
-              <div className={`${cardBg} rounded-2xl p-5 border ${borderClass} backdrop-blur-md shadow-xl`}>
-                <div className="flex items-center gap-3 mb-2"><Flame className="w-5 h-5 text-orange-400" /><span className="text-sm uppercase tracking-wider opacity-70">Daily Streak</span></div>
-                <div className="flex justify-between items-center"><span className="text-2xl font-bold">{dailyStreak} days</span>{canMintToday ? <button onClick={mintDailyBadge} className="px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg text-xs">Mint Daily</button> : <span className="text-xs opacity-50">Minted</span>}</div>
+      {showTutorial && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className={`${cardBg} rounded-2xl max-w-md w-full p-6 border ${borderClass}`}>
+            <h3 className="text-2xl font-bold mb-3 text-center flex items-center justify-center gap-2"><Sparkles className="w-6 h-6 text-cyan-400" /> ArcPay Tutorial</h3>
+            <div className="space-y-3 text-sm">
+              <p className="flex items-center gap-2"><span className="w-6 h-6 bg-cyan-500/20 rounded-full flex items-center justify-center text-xs">0️⃣</span> <strong>Get USDC first</strong> – Use <a href="https://faucet.circle.com" target="_blank" className="text-cyan-400 underline">Circle Faucet</a> (select Arc Testnet)</p>
+              <p className="flex items-center gap-2"><span className="w-6 h-6 bg-cyan-500/20 rounded-full flex items-center justify-center text-xs">1️⃣</span> <strong>Connect Wallet</strong> – Rabby/MetaMask on Arc Testnet</p>
+              <p className="flex items-center gap-2"><span className="w-6 h-6 bg-cyan-500/20 rounded-full flex items-center justify-center text-xs">2️⃣</span> <strong>Create Request</strong> – Fill description & amount → Create</p>
+              <p className="flex items-center gap-2"><span className="w-6 h-6 bg-cyan-500/20 rounded-full flex items-center justify-center text-xs">3️⃣</span> <strong>Share ID</strong> – Copy ID or click 🔗 Magic Link</p>
+              <p className="flex items-center gap-2"><span className="w-6 h-6 bg-cyan-500/20 rounded-full flex items-center justify-center text-xs">4️⃣</span> <strong>Payer Pays</strong> – Paste ID or click link → Confirm → Pay</p>
+              <p className="flex items-center gap-2"><span className="w-6 h-6 bg-cyan-500/20 rounded-full flex items-center justify-center text-xs">5️⃣</span> <strong>Done!</strong> – Status "Paid" & balance updates</p>
+            </div>
+            <p className="text-center text-cyan-400 text-xs mt-3 flex items-center justify-center gap-1"><Sparkles className="w-3 h-3" /> Happy building on Arc Testnet <Sparkles className="w-3 h-3" /></p>
+            <button onClick={() => { setShowTutorial(false); localStorage.setItem('arcpay-tutorial', 'true'); }} className="mt-4 w-full py-2 rounded-xl bg-gradient-to-r from-pink-600 to-cyan-600 hover:scale-105 transition font-semibold">🚀 Got it!</button>
+          </div>
+        </div>
+      )}
+
+      <div className="relative z-10 text-center pt-10 pb-8 px-4"><h1 className="text-5xl sm:text-6xl font-black mb-3 bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-2xl flex items-center justify-center gap-2">USDC <span className="text-white/30 text-4xl">→</span> Payments</h1><p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Send and receive payment requests on Arc L1</p></div>
+
+      <div className="relative z-10 max-w-6xl mx-auto px-4 pb-20">
+        <div className="grid md:grid-cols-2 gap-8">
+          <div className={`${cardBg} rounded-2xl p-6 border ${borderClass} transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-pink-500/20`}>
+            <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Send className="w-5 h-5 text-pink-400" /> Create Request</h2>
+            <div className="space-y-4">
+              <input type="text" placeholder="What's it for? (e.g., 'Website design')" value={desc} onChange={(e) => setDesc(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition`} />
+              <input type="number" placeholder="Amount (USDC)" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition`} />
+              <button onClick={createRequest} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-pink-600 to-purple-600 hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-2">{loading === 'Creating request...' ? <><Zap className="w-4 h-4 animate-spin" /> Creating...</> : <><Sparkles className="w-4 h-4" /> Create Request</>}</button>
+            </div>
+          </div>
+          <div className={`${cardBg} rounded-2xl p-6 border ${borderClass} transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-cyan-500/20`}>
+            <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Send className="w-5 h-5 text-cyan-400" /> Pay Request</h2>
+            <div className="space-y-4">
+              <input type="text" placeholder="Request ID (0x...)" value={payId} onChange={(e) => setPayId(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-cyan-500 transition`} />
+              {gasEstimate && <div className="text-xs text-gray-400 text-center">⛽ Estimated gas: {gasEstimate}</div>}
+              <button onClick={handlePayClick} disabled={loading !== '' || !wallet} className="w-full py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-cyan-600 to-teal-600 hover:scale-105 transition-all hover:shadow-lg hover:shadow-cyan-500/30 disabled:opacity-50 active:scale-95 flex items-center justify-center gap-2">{loading === 'Processing payment...' ? <><Zap className="w-4 h-4 animate-spin" /> Paying...</> : <><Send className="w-4 h-4" /> Pay Request</>}</button>
+            </div>
+          </div>
+        </div>
+
+        {wallet && (
+          <div className={`mt-8 ${cardBg} rounded-2xl p-5 border ${borderClass} flex flex-wrap items-center justify-between gap-4`}>
+            <div className="flex items-center gap-4">
+              <div className={`text-4xl w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center border border-yellow-500/30`}>{dailyBadgeIcons[todayBadgeId]}</div>
+              <div>
+                <div className="flex items-center gap-2"><h3 className="font-semibold">Daily Badge</h3>{dailyStreak > 0 && <span className="text-xs bg-orange-500/30 px-2 py-0.5 rounded-full flex items-center gap-1"><Flame className="w-3 h-3" /> {dailyStreak} day streak</span>}</div>
+                <p className="text-xs text-gray-400">Mint 1 badge every day. Streak rewards at 7 days!</p>
+                {tierName !== 'Unranked' && <p className="text-xs text-cyan-400 mt-1">{tierIcon} {tierName} • {totalBadges} badges collected</p>}
               </div>
             </div>
+            <button onClick={mintDailyBadge} disabled={!canMintToday || loading !== ''} className={`px-5 py-2 rounded-xl font-medium text-sm transition-all hover:scale-105 flex items-center gap-2 ${canMintToday ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:shadow-lg hover:shadow-yellow-500/30' : 'bg-gray-600/50 cursor-not-allowed'}`}>{canMintToday ? <><Gift className="w-4 h-4" /> Mint Today's Badge</> : <><CheckCircle className="w-4 h-4" /> Already Minted</>}</button>
+          </div>
+        )}
 
-            <div className="flex gap-2 border-b border-white/20 mb-6">
-              {(['requests', 'payments', 'badges', 'leaderboard'] as const).map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 text-sm font-medium transition-all ${activeTab === tab ? 'border-b-2 border-cyan-400 text-cyan-400' : 'opacity-60 hover:opacity-100'}`}>{tab.charAt(0).toUpperCase() + tab.slice(1)}</button>
-              ))}
+        {wallet && (
+          <>
+            <div className="flex gap-6 mt-10 border-b border-white/10 mb-6">
+              <button onClick={() => setActiveTab('requests')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'requests' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Layers className="w-4 h-4" /> My Requests</button>
+              <button onClick={() => setActiveTab('payments')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'payments' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Send className="w-4 h-4" /> My Payments{myPayments.length > 0 && <button onClick={() => exportToCSV(myPayments, 'arcpay-payments')} className="ml-2 text-xs bg-cyan-600/50 hover:bg-cyan-600 px-2 py-0.5 rounded-full transition" title="Export CSV"><Download className="w-3 h-3 inline" /> CSV</button>}</button>
+              <button onClick={() => setActiveTab('badges')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'badges' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Award className="w-4 h-4" /> Badges{userBadgeCount > 0 && <span className="text-xs bg-cyan-500/30 px-1.5 py-0.5 rounded-full">{userBadgeCount}</span>}</button>
+              <button onClick={() => setActiveTab('leaderboard')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'leaderboard' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Trophy className="w-4 h-4" /> Leaderboard</button>
             </div>
 
             {activeTab === 'requests' && (
-              <div className="space-y-8">
-                <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
-                  <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Send className="w-5 h-5 text-cyan-400" /> Create Request</h2>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <input type="text" placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} className={`flex-1 px-4 py-2 rounded-xl ${inputBg} border ${borderClass} outline-none focus:ring-2 focus:ring-cyan-500`} />
-                    <input type="number" placeholder="Amount (USDC)" value={amount} onChange={(e) => setAmount(e.target.value)} className={`w-32 px-4 py-2 rounded-xl ${inputBg} border ${borderClass} outline-none focus:ring-2 focus:ring-cyan-500`} />
-                    <button onClick={createRequest} disabled={!!loading} className="px-6 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:shadow-lg transition-all flex items-center gap-2"><Zap className="w-4 h-4" /> Create</button>
-                  </div>
-                </div>
-
-                <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
-                  <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Search className="w-5 h-5" /> My Requests</h2>
-                  <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                    <input type="text" placeholder="Search by description or ID" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`flex-1 px-4 py-2 rounded-xl ${inputBg} border ${borderClass}`} />
-                    <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className={`px-4 py-2 rounded-xl ${inputBg} border ${borderClass}`}><option value="all">All</option><option value="pending">Pending</option><option value="paid">Paid</option></select>
-                    <button onClick={() => exportToCSV(filteredRequests, 'arcpay-requests')} className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 flex items-center gap-2"><Download className="w-4 h-4" /> Export</button>
-                  </div>
-                  {isFetching ? <Skeleton className="h-32" /> : paginatedRequests.length === 0 ? <p className="text-center opacity-50 py-8">No requests found</p> : paginatedRequests.map(req => (<div key={req.id} className={`border-b ${borderClass} py-3 last:border-0`}><div className="flex flex-wrap justify-between items-start gap-2"><div><p className="font-medium">{req.description}</p><p className="text-xs font-mono opacity-50">{req.id.slice(0,10)}...{req.id.slice(-8)}</p></div><div className="text-right"><p className="text-lg font-bold">{req.amount} USDC</p><p className={`text-xs ${req.paid ? 'text-green-400' : 'text-yellow-400'}`}>{req.paid ? 'Paid' : 'Pending'}</p><div className="flex gap-2 mt-1"><button onClick={() => copyToClipboard(req.id)} className="text-xs bg-white/10 px-2 py-0.5 rounded">Copy ID</button><button onClick={() => shareRequestLink(req.id)} className="text-xs bg-white/10 px-2 py-0.5 rounded">Share</button></div></div></div></div>))}
-                  <Pagination currentPage={requestsPage} totalPages={Math.ceil(filteredRequests.length / itemsPerPage)} onPageChange={setRequestsPage} />
-                </div>
+              <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
+                <div className="flex flex-wrap justify-between items-center mb-5 gap-3"><h2 className="text-xl font-semibold flex items-center gap-2"><Layers className="w-5 h-5 text-cyan-400" /> My Requests</h2><div className="flex gap-2"><div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" /><input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputBg} border ${borderClass} rounded-xl pl-8 pr-3 py-1.5 text-sm w-32 sm:w-40 focus:outline-none focus:border-cyan-500`} /></div><select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500`}><option value="all">All</option><option value="pending">Pending</option><option value="paid">Paid</option></select></div></div>
+                {isFetching ? <div className="space-y-3"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div> : paginatedRequests.length === 0 ? <div className="text-center py-12"><div className="text-6xl mb-3">📭</div><p className="text-gray-400">No requests yet</p><button onClick={() => setShowTutorial(true)} className="mt-3 text-xs text-cyan-400 hover:text-cyan-300">❓ Need help?</button></div> : <div className="space-y-3">{paginatedRequests.map((req, idx) => (<div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all hover:scale-[1.01]"><div className="flex flex-wrap justify-between items-start gap-2"><div className="flex-1"><p className="font-medium truncate">{req.description}</p><div className="flex flex-wrap items-center gap-2 mt-1"><p className="text-xs text-gray-400 font-mono">{truncateHash(req.id)}</p><button onClick={() => copyToClipboard(req.id)} className="bg-gray-700 hover:bg-cyan-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Copy className="w-3 h-3" /> Copy</button><button onClick={() => shareRequestLink(req.id)} className="bg-gray-700 hover:bg-green-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Share2 className="w-3 h-3" /> Share</button>{txHashes[req.id] && <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Tx</a>}</div><p className="text-xs text-cyan-300 mt-1">{ethers.formatUnits(req.amount, 18)} USDC</p></div><span className={`text-xs px-3 py-1 rounded-full border ${req.paid ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>{req.paid ? <><CheckCircle className="w-3 h-3 inline mr-1" /> Paid</> : <><Clock className="w-3 h-3 inline mr-1" /> Pending</>}</span></div></div>))}<Pagination currentPage={requestsPage} totalPages={Math.ceil(filteredRequests.length / itemsPerPage)} onPageChange={setRequestsPage} /></div>}
               </div>
             )}
 
             {activeTab === 'payments' && (
               <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Send className="w-5 h-5 text-teal-400" /> Pay Request</h2>
-                <div className="flex gap-3 mb-6">
-                  <input type="text" placeholder="Request ID (0x...)" value={payId} onChange={(e) => setPayId(e.target.value)} className={`flex-1 px-4 py-2 rounded-xl ${inputBg} border ${borderClass}`} />
-                  <button onClick={handlePayClick} disabled={!!loading} className="px-6 py-2 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 hover:shadow-lg transition-all">Pay</button>
-                </div>
-                <h3 className="font-bold mb-3">Payment History</h3>
-                {isFetchingPayments ? <Skeleton className="h-32" /> : paginatedPayments.length === 0 ? <p className="text-center opacity-50 py-8">No payments made</p> : paginatedPayments.map(p => (<div key={p.id} className={`border-b ${borderClass} py-3 last:border-0`}><p className="font-medium">{p.description}</p><p className="text-xs font-mono opacity-50">{p.id}</p><p className="text-sm text-teal-400">{p.amount} USDC</p></div>))}
-                <Pagination currentPage={paymentsPage} totalPages={Math.ceil(myPayments.length / itemsPerPage)} onPageChange={setPaymentsPage} />
+                <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Send className="w-5 h-5 text-cyan-400" /> My Payments</h2>
+                {isFetchingPayments ? <div className="space-y-3"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div> : paginatedPayments.length === 0 ? <div className="text-center py-12"><div className="text-6xl mb-3">💸</div><p className="text-gray-400">No payments yet</p></div> : <><div className="space-y-3">{paginatedPayments.map((payment, idx) => (<div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all hover:scale-[1.01]"><div className="flex flex-wrap justify-between items-start gap-2"><div className="flex-1"><p className="font-medium truncate">{payment.description}</p><p className="text-xs text-gray-400 font-mono mt-1">{truncateHash(payment.id)}</p><p className="text-xs text-cyan-300 mt-1">{payment.amount} USDC</p></div><span className="text-xs bg-green-500/20 text-green-400 px-3 py-1 rounded-full border border-green-500/30 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</span></div></div>))}</div><Pagination currentPage={paymentsPage} totalPages={Math.ceil(myPayments.length / itemsPerPage)} onPageChange={setPaymentsPage} /></>}
               </div>
             )}
 
             {activeTab === 'badges' && (
-              <div className="space-y-6">
-                <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
-                  <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Award className="w-5 h-5 text-purple-400" /> Achievement Badges</h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    {badgeConfig.map(badge => (
-                      <div key={badge.id} onClick={() => checkAndMintBadge(badge.id, badge.name)} className={`p-4 rounded-xl text-center cursor-pointer transition-all hover:scale-105 ${userBadges[badge.id] ? `${badge.color} bg-opacity-20 border border-${badge.color}` : 'bg-white/5 border border-white/10'}`}>
-                        <div className="text-3xl mb-1">{badge.icon}</div>
-                        <div className="font-bold text-sm">{badge.name}</div>
-                        <div className="text-xs opacity-60 mt-1">{userBadges[badge.id] ? 'Minted ✓' : 'Locked'}</div>
-                      </div>
-                    ))}
+              <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
+                <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Award className="w-5 h-5 text-cyan-400" /> Your Badges</h2>
+                <div className="bg-white/5 rounded-xl p-4 mb-6">
+                  <h3 className="text-sm font-semibold mb-2 flex items-center gap-2"><BadgeCheck className="w-4 h-4 text-cyan-400" /> How to Earn Badges</h3>
+                  <div className="text-xs text-gray-400 space-y-1">
+                    <p>🎯 First Request — Create your first payment request → Complete to unlock</p>
+                    <p>💰 First Payment — Pay any request → Complete to unlock</p>
+                    <p>🏆 10 Requests — Create 10 payment requests → Complete to unlock</p>
+                    <p>🐋 100 USDC Paid — Pay total 100 USDC → Complete to unlock</p>
+                    <p>🔥 7 Day Streak — Mint daily badge for 7 days straight → Complete to unlock</p>
+                    <p>👑 Legend — Reach 2000 points → Complete to unlock</p>
                   </div>
                 </div>
-                <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
-                  <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Gem className="w-5 h-5 text-amber-400" /> Daily Badges</h2>
-                  <div className="flex justify-between items-center flex-wrap gap-3"><div className="flex items-center gap-2"><span className="text-3xl">{dailyBadgeIcons[todayBadgeId]}</span><div><p className="font-bold">Today's Badge: {dailyBadgeNames[todayBadgeId]}</p><p className="text-xs opacity-60">Streak: {dailyStreak} days</p></div></div><button onClick={mintDailyBadge} disabled={!canMintToday} className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 disabled:opacity-50">Mint Today</button></div>
+                <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-2xl p-5 mb-6 border border-white/10">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div><p className="text-xs text-gray-400">Current Tier</p><p className="text-2xl font-bold flex items-center gap-2">{tierIcon} {tierName}</p></div>
+                    <div><p className="text-xs text-gray-400">Total Badges</p><p className="text-2xl font-bold">{totalBadges}</p></div>
+                    <div><p className="text-xs text-gray-400">Daily Streak</p><p className="text-2xl font-bold flex items-center gap-1"><Flame className="w-5 h-5 text-orange-500" /> {dailyStreak}</p></div>
+                    <div><p className="text-xs text-gray-400">Points</p><p className="text-2xl font-bold flex items-center gap-1"><Star className="w-5 h-5 text-yellow-500" /> {userPoints}</p></div>
+                  </div>
                 </div>
+                
+                <div className="mb-6 p-4 bg-gradient-to-r from-cyan-500/10 to-teal-500/10 rounded-xl border border-cyan-500/30">
+                  <p className="text-sm font-medium mb-3 text-center">Need to claim your badge?</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => checkAndMintBadge(0, 'First Request')} disabled={userBadges[0]} className="w-full py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-emerald-600 to-green-600 hover:shadow-lg">🎯 First Request</button>
+                    <button onClick={() => checkAndMintBadge(1, 'First Payment')} disabled={userBadges[1]} className="w-full py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-lg">💰 First Payment</button>
+                    <button onClick={() => checkAndMintBadge(2, '10 Requests')} disabled={userBadges[2]} className="w-full py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg">🏆 10 Requests</button>
+                    <button onClick={() => checkAndMintBadge(3, '100 USDC Paid')} disabled={userBadges[3]} className="w-full py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-cyan-600 to-teal-600 hover:shadow-lg">🐋 100 USDC Paid</button>
+                  </div>
+                  <p className="text-xs text-gray-500 text-center mt-3">Click button to check & mint your badge (only once per badge)</p>
+                </div>
+
+                <h3 className="font-semibold mb-3 flex items-center gap-2"><Trophy className="w-4 h-4 text-yellow-500" /> Achievements</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-8">{badgeConfig.map((badge, idx) => (<div key={idx} className={`text-center p-3 rounded-xl transition-all ${userBadges[idx] ? `${badge.color}/20 border border-${badge.color.split('-')[1]}-500/30` : 'bg-white/5 border border-white/10 opacity-50'}`}><div className={`text-3xl mb-1 ${userBadges[idx] ? 'animate-pulse' : ''}`}>{badge.icon}</div><p className="text-xs font-medium">{badge.name}</p><p className="text-[10px] text-gray-500 mt-1">{userBadges[idx] ? '✅ Unlocked' : '🔒 Locked'}</p></div>))}</div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2"><Gift className="w-4 h-4 text-yellow-500" /> Daily Badges</h3>
+                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">{dailyBadgeIcons.map((icon, idx) => (<div key={idx} className="text-center p-2 rounded-lg bg-white/5 border border-white/10"><div className="text-2xl">{icon}</div><p className="text-[10px] mt-1">{dailyBadgeNames[idx]}</p></div>))}</div>
+                <p className="text-center text-xs text-cyan-400 mt-4">✨ Mint a badge every day to increase your streak! ✨</p>
               </div>
             )}
 
             {activeTab === 'leaderboard' && (
               <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Trophy className="w-5 h-5 text-yellow-400" /> Leaderboard</h2>
-                <p className="text-xs text-center opacity-50 mb-4">⚠️ Demo data - Connect to real contract for live rankings</p>
-                {leaderboard.map((user, idx) => (<div key={idx} className="flex justify-between items-center border-b border-white/10 py-2"><span className="flex items-center gap-2"><span className="w-6 text-center font-bold">{idx+1}</span><span className="font-mono text-sm">{user.address}</span></span><span className="font-bold">{user.points} pts</span></div>))}
+                <h2 className="text-xl font-semibold mb-5 flex-items-center gap-2"><Trophy className="w-5 h-5 text-yellow-500" /> Leaderboard</h2>
+                <div className="space-y-2">
+                  {leaderboard.map((user, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/5">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${idx === 0 ? 'bg-yellow-500/30 text-yellow-400' : idx === 1 ? 'bg-gray-400/30 text-gray-300' : idx === 2 ? 'bg-orange-500/30 text-orange-400' : 'bg-white/10'}`}>{idx + 1}</span>
+                        <span className="font-mono text-sm">{user.address}</span>
+                      </div>
+                      <div className="flex items-center gap-2"><Star className="w-4 h-4 text-yellow-500" /><span className="font-semibold">{user.points}</span></div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-center text-xs text-gray-500 mt-4">✨ Keep building to climb the ranks! ✨</p>
               </div>
             )}
           </>
-        ) : (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-            <div className="text-6xl mb-6">🚀</div>
-            <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">ArcPay</h1>
-            <p className="text-lg opacity-70 mb-8">Payment Request on Arc Testnet</p>
-            <button onClick={connectWallet} className="px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 text-lg font-medium flex items-center gap-2"><Wallet className="w-5 h-5" /> Connect Wallet to Start</button>
-          </div>
         )}
-      </main>
+
+        <div className="mt-12 p-5 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 text-center"><h3 className="text-sm font-semibold mb-2 flex-items-center justify-center gap-2"><BookOpen className="w-4 h-4 text-cyan-400" /> Quick Tutorial</h3><div className="text-xs text-gray-400 space-x-3 flex flex-wrap justify-center gap-y-2"><span>0️⃣ Get USDC first</span><span>➡️</span><span>1️⃣ Connect</span><span>➡️</span><span>2️⃣ Create</span><span>➡️</span><span>3️⃣ Share ID</span><span>➡️</span><span>4️⃣ Pay</span><span>➡️</span><span>5️⃣ Done ✅</span></div><p className="text-[10px] text-gray-500 mt-2 flex items-center justify-center gap-1">💰 Need USDC? Get from <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline flex items-center gap-1"><Droplet className="w-3 h-3" /> Circle Faucet</a> (select Arc Testnet)</p><p className="text-[10px] text-gray-500 mt-1 flex items-center justify-center gap-1">❓ Click the <HelpCircle className="w-3 h-3" /> button for full tutorial</p></div>
+
+        <div className="text-center mt-10 pt-6 border-t border-white/10">
+          <p className="text-sm font-medium glow-text bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent animate-pulse flex items-center justify-center gap-2">✦ Build on Arc by Circle ✦</p>
+          <div className="flex justify-center gap-4 mt-3 flex-wrap"><a href="https://github.com/mrpseudonym404/arcpay" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition">GitHub</a><a href="https://x.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><X className="w-3 h-3" /> Twitter</a><a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-gray-500 text-xs hover:text-cyan-400 transition flex items-center gap-1"><Droplet className="w-3 h-3" /> Faucet</a></div>
+          <div className="flex justify-center gap-4 mt-2 text-[10px] text-gray-600"><a href="/privacy" className="hover:text-cyan-400 transition">Privacy</a><span>•</span><a href="/terms" className="hover:text-cyan-400 transition">Terms</a><span>•</span><a href="/cookies" className="hover:text-cyan-400 transition">Cookies</a></div>
+          <p className="text-gray-500 text-[10px] font-mono mt-2">arcpay · <a href={`https://testnet.arcscan.app/address/${CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition">{CONTRACT_ADDRESS.slice(0,8)}...{CONTRACT_ADDRESS.slice(-6)}</a></p>
+        </div>
+      </div>
     </div>
   );
 }
