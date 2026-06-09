@@ -220,6 +220,7 @@ export default function Home() {
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, provider);
+            console.log("DEBUG: badgeContract created");
       setCanMintToday(await badgeContract.canMintToday(wallet));
       setDailyStreak(Number(await badgeContract.mintStreak(wallet)));
       setTotalBadges(Number(await badgeContract.totalBadges(wallet)));
@@ -231,6 +232,7 @@ export default function Home() {
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, provider);
+            console.log("DEBUG: badgeContract created");
       const total = await badgeContract.totalBadges(wallet);
       const [name, icon] = await badgeContract.getTierInfo(Number(total));
       setTierName(name); setTierIcon(icon);
@@ -244,6 +246,7 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, signer);
+            console.log("DEBUG: badgeContract created");
       await (await badgeContract.mintDailyBadge()).wait();
       await fetchDailyBadgeStatus(); await fetchTierInfo();
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#fbbf24', '#f59e0b', '#ef4444'] });
@@ -257,6 +260,7 @@ export default function Home() {
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, provider);
+            console.log("DEBUG: badgeContract created");
       setUserPoints(Number(await badgeContract.points(wallet)));
       setUserStreak(Number(await badgeContract.streakDays(wallet)));
       const badges = await Promise.all(badgeConfig.map(async (b) => await badgeContract.hasBadge(wallet, b.id)));
@@ -339,7 +343,9 @@ export default function Home() {
       setWallet(address);
       showToast(`Connected: ${address.slice(0,6)}...${address.slice(-4)}`, 'success');
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
+            console.log("DEBUG: BADGE_CONTRACT_ADDRESS =", BADGE_CONTRACT_ADDRESS);
         const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
+            console.log("DEBUG: badgeContract created");
         try { await badgeContract.updateStreak(address); } catch(e) {}
       }
       await fetchDailyBadgeStatus(); await fetchTierInfo();
@@ -360,6 +366,7 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
+            console.log("DEBUG: badgeContract created");
       await badgeContract.checkAndAwardBadge(wallet, pendingBadge.id);
       await fetchUserStats();
       setShowMintModal(false);
@@ -389,12 +396,16 @@ export default function Home() {
       await fetchMyRequests(); await fetchUserStats();
       
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
+            console.log("DEBUG: BADGE_CONTRACT_ADDRESS =", BADGE_CONTRACT_ADDRESS);
         try {
           const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
+            console.log("DEBUG: badgeContract created");
           await badgeContract.updateStats(wallet, 1, 0);
           const hasFirstBadge = await badgeContract.hasBadge(wallet, 0);
+            console.log("DEBUG: hasFirstBadge =", hasFirstBadge);
           if (!hasFirstBadge) {
             setPendingBadge({ id: 0, name: 'First Request' });
+            console.log("DEBUG: Setting pending badge First Request");
             setShowMintModal(true);
           }
           const hasTenBadges = await badgeContract.hasBadge(wallet, 2);
@@ -429,8 +440,10 @@ export default function Home() {
       await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
       
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
+            console.log("DEBUG: BADGE_CONTRACT_ADDRESS =", BADGE_CONTRACT_ADDRESS);
         try {
           const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
+            console.log("DEBUG: badgeContract created");
           await badgeContract.updateStats(wallet, 0, Number(ethers.formatUnits(amountInWei, 18)));
           const hasFirstPayment = await badgeContract.hasBadge(wallet, 1);
           if (!hasFirstPayment) {
