@@ -159,7 +159,7 @@ export default function Home() {
   const [canMintToday, setCanMintToday] = useState(false);
   const [tierName, setTierName] = useState('Unranked');
   const [tierIcon, setTierIcon] = useState('⚪');
-  const [leaderboard, setLeaderboard] = useState<{name: string, points: number, isYou?: boolean}[]>([]);
+  const [leaderboard, setLeaderboard] = useState<{address: string, points: number}[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [requestsPage, setRequestsPage] = useState(1);
   const [paymentsPage, setPaymentsPage] = useState(1);
@@ -220,7 +220,6 @@ export default function Home() {
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, provider);
-            console.log("DEBUG: badgeContract created");
       setCanMintToday(await badgeContract.canMintToday(wallet));
       setDailyStreak(Number(await badgeContract.mintStreak(wallet)));
       setTotalBadges(Number(await badgeContract.totalBadges(wallet)));
@@ -232,7 +231,6 @@ export default function Home() {
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, provider);
-            console.log("DEBUG: badgeContract created");
       const total = await badgeContract.totalBadges(wallet);
       const [name, icon] = await badgeContract.getTierInfo(Number(total));
       setTierName(name); setTierIcon(icon);
@@ -246,7 +244,6 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, signer);
-            console.log("DEBUG: badgeContract created");
       await (await badgeContract.mintDailyBadge()).wait();
       await fetchDailyBadgeStatus(); await fetchTierInfo();
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#fbbf24', '#f59e0b', '#ef4444'] });
@@ -260,7 +257,6 @@ export default function Home() {
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, provider);
-            console.log("DEBUG: badgeContract created");
       setUserPoints(Number(await badgeContract.points(wallet)));
       setUserStreak(Number(await badgeContract.streakDays(wallet)));
       const badges = await Promise.all(badgeConfig.map(async (b) => await badgeContract.hasBadge(wallet, b.id)));
@@ -269,13 +265,12 @@ export default function Home() {
   }
 
   async function fetchLeaderboard() {
-    const currentWallet = wallet;
     setLeaderboard([
-      { name: currentWallet === '0x694290534B77C3d845F9C51B6C78724A268dc313' ? '👤 You' : 'Builder 0x6942', points: 1250, isYou: currentWallet === '0x694290534B77C3d845F9C51B6C78724A268dc313' },
-      { name: 'CryptoKing', points: 980 },
-      { name: 'DeFiMaster', points: 750 },
-      { name: 'NFTWhale', points: 520 },
-      { name: 'AirdropHunter', points: 310 }
+      { address: '0x71a2...b8e4', points: 1250 },
+      { address: '0x83b4...d9f2', points: 980 },
+      { address: '0x95c6...e0a1', points: 750 },
+      { address: '0xa7d8...f1b3', points: 520 },
+      { address: '0xb9e0...g2c4', points: 310 }
     ]);
   }
 
@@ -343,9 +338,7 @@ export default function Home() {
       setWallet(address);
       showToast(`Connected: ${address.slice(0,6)}...${address.slice(-4)}`, 'success');
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
-            console.log("DEBUG: BADGE_CONTRACT_ADDRESS =", BADGE_CONTRACT_ADDRESS);
         const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
-            console.log("DEBUG: badgeContract created");
         try { await badgeContract.updateStreak(address); } catch(e) {}
       }
       await fetchDailyBadgeStatus(); await fetchTierInfo();
@@ -366,8 +359,7 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
-            console.log("DEBUG: badgeContract created");
-      await badgeContract.checkAndAwardBadge(wallet, pendingBadge.id);
+      await badgeContract.checkAndAwardBadge(wallet, pendingBadge.id, { gasLimit: 300000 });
       await fetchUserStats();
       setShowMintModal(false);
       setPendingBadge(null);
@@ -396,16 +388,12 @@ export default function Home() {
       await fetchMyRequests(); await fetchUserStats();
       
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
-            console.log("DEBUG: BADGE_CONTRACT_ADDRESS =", BADGE_CONTRACT_ADDRESS);
         try {
           const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
-            console.log("DEBUG: badgeContract created");
-          await badgeContract.updateStats(wallet, 1, 0);
+          await badgeContract.updateStats(wallet, 1, 0, { gasLimit: 300000 });
           const hasFirstBadge = await badgeContract.hasBadge(wallet, 0);
-            console.log("DEBUG: hasFirstBadge =", hasFirstBadge);
           if (!hasFirstBadge) {
             setPendingBadge({ id: 0, name: 'First Request' });
-            console.log("DEBUG: Setting pending badge First Request");
             setShowMintModal(true);
           }
           const hasTenBadges = await badgeContract.hasBadge(wallet, 2);
@@ -440,11 +428,9 @@ export default function Home() {
       await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
       
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
-            console.log("DEBUG: BADGE_CONTRACT_ADDRESS =", BADGE_CONTRACT_ADDRESS);
         try {
           const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
-            console.log("DEBUG: badgeContract created");
-          await badgeContract.updateStats(wallet, 0, Number(ethers.formatUnits(amountInWei, 18)));
+          await badgeContract.updateStats(wallet, 0, Number(ethers.formatUnits(amountInWei, 18)), { gasLimit: 300000 });
           const hasFirstPayment = await badgeContract.hasBadge(wallet, 1);
           if (!hasFirstPayment) {
             setPendingBadge({ id: 1, name: 'First Payment' });
@@ -582,7 +568,7 @@ export default function Home() {
             </div>
           </div>
           <div className={`${cardBg} rounded-2xl p-6 border ${borderClass} transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-cyan-500/20`}>
-            <h2 className="text-xl font-semibold mb-5 flex-items-center gap-2"><Send className="w-5 h-5 text-cyan-400" /> Pay Request</h2>
+            <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Send className="w-5 h-5 text-cyan-400" /> Pay Request</h2>
             <div className="space-y-4">
               <input type="text" placeholder="Request ID (0x...)" value={payId} onChange={(e) => setPayId(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-cyan-500 transition`} />
               {gasEstimate && <div className="text-xs text-gray-400 text-center">⛽ Estimated gas: {gasEstimate}</div>}
@@ -633,7 +619,6 @@ export default function Home() {
                 <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Award className="w-5 h-5 text-cyan-400" /> Your Badges</h2>
                 <div className="bg-white/5 rounded-xl p-4 mb-6">
                   <h3 className="text-sm font-semibold mb-2 flex items-center gap-2"><BadgeCheck className="w-4 h-4 text-cyan-400" /> How to Earn Badges</h3>
-                <button onClick={() => { if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') { (async () => { try { const provider = new ethers.BrowserProvider((window as any).ethereum); const signer = await provider.getSigner(); const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer); const hasFirstBadge = await badgeContract.hasBadge(wallet, 0); if (!hasFirstBadge) { setPendingBadge({ id: 0, name: 'First Request' }); setShowMintModal(true); } else { alert('Badge already minted!'); } } catch(e) { console.error(e); alert('Error: ' + e.message); } })(); } }} className="mt-2 text-xs bg-cyan-600/50 hover:bg-cyan-600 px-3 py-1 rounded-full transition">🔍 Check & Mint Badge</button>
                   <div className="text-xs text-gray-400 space-y-1">
                     <p>🎯 First Request — Create your first payment request → Complete to unlock</p>
                     <p>💰 First Payment — Pay any request → Complete to unlock</p>
@@ -667,7 +652,7 @@ export default function Home() {
                     <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/5">
                       <div className="flex items-center gap-3">
                         <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${idx === 0 ? 'bg-yellow-500/30 text-yellow-400' : idx === 1 ? 'bg-gray-400/30 text-gray-300' : idx === 2 ? 'bg-orange-500/30 text-orange-400' : 'bg-white/10'}`}>{idx + 1}</span>
-                        <span className="font-medium text-sm">{user.name}{user.isYou && ' (You)'}</span>
+                        <span className="font-mono text-sm">{user.address}</span>
                       </div>
                       <div className="flex items-center gap-2"><Star className="w-4 h-4 text-yellow-500" /><span className="font-semibold">{user.points}</span></div>
                     </div>
