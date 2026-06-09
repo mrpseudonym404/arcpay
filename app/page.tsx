@@ -14,7 +14,7 @@ import {
 const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
 const ARC_CHAIN_ID = '0x4CEF52';
-const SIMPLE_BADGE_ADDRESS = '0x0101E7f1Bec5875d2fa6ba80cd9F42b76d9c3963';
+const SIMPLE_BADGE_ADDRESS = '0x96d5646848424FdB50F19d23BEE7C2E56d033205';
 const DAILY_BADGE_CONTRACT_ADDRESS = '0xA9323D36E49aC6aC49F38aAd431f4C2b69280475';
 
 const CONTRACT_ABI = [
@@ -316,7 +316,8 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
       const gasPrice = await provider.getFeeData();
-      const estimate = await contract.payRequest.estimateGas(payId, { value: 1 });
+      const reqData = await contract.requests(payId);
+      const estimate = await contract.payRequest.estimateGas(payId, { value: reqData.amount });
       setGasEstimate(`${(Number(estimate) * Number(gasPrice.gasPrice || 0) / 1e18).toFixed(6)} USDC`);
     } catch (err) { setGasEstimate('N/A'); }
   }
@@ -431,6 +432,7 @@ export default function Home() {
   }
 
   const handlePayClick = () => { if (!payId) return showToast('Enter Request ID', 'error'); setPendingPayId(payId); setShowConfirmModal(true); };
+  
   const executePay = useCallback(async () => {
     const id = pendingPayId;
     setShowConfirmModal(false);
@@ -451,7 +453,7 @@ export default function Home() {
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
           const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
-          await badgeContract.updateStats(wallet, 0, Number(ethers.formatUnits(amountInWei, 18)), { gasLimit: 300000 });
+          await badgeContract.updateStats(wallet, 0, amountInWei, { gasLimit: 300000 });
           const hasFirstPayment = await badgeContract.hasBadge(wallet, 1);
           if (!hasFirstPayment) {
             setPendingBadge({ id: 1, name: 'First Payment' });
@@ -464,7 +466,7 @@ export default function Home() {
       showToast(`🎉 Payment sent. ${randomVibe}`, 'success', txHash);
     } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
     setLoading('');
-  }, [pendingPayId]);
+  }, [pendingPayId, wallet]);
 
   function copyToClipboard(text: string) { navigator.clipboard.writeText(text); showToast('📋 Copied!', 'success'); }
   function shareRequestLink(requestId: string) { const url = `${window.location.origin}/#reqId=${requestId}`; navigator.clipboard.writeText(url); showToast('🔗 Magic link copied!', 'success'); }
