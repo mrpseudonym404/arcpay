@@ -201,7 +201,6 @@ export default function Home() {
     if (!wallet) return;
     const { ethereum } = window as any;
     if (!ethereum) return;
-    const handleBlock = async () => { await fetchBalance(); await fetchMyRequests(); await fetchUserStats(); await fetchDailyBadgeStatus(); };
     ethereum.on('block', handleBlock);
     return () => ethereum.removeListener('block', handleBlock);
   }, [wallet]);
@@ -359,11 +358,13 @@ export default function Home() {
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
       await badgeContract.mintBadge(pendingBadge.id, { gasLimit: 300000 });
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await fetchDailyBadgeStatus();
+      await fetchTierInfo();
       // Polling badge status
       let retries = 0;
       while (retries < 5) {
         await new Promise(r => setTimeout(r, 1000));
-        await fetchUserStats();
         if (userBadges[pendingBadge.id]) break;
         retries++;
       }
@@ -395,7 +396,6 @@ export default function Home() {
         setShowMintModal(true);
       } else {
         showToast(`✨ ${badgeName} badge already minted!`, 'success');
-        await fetchUserStats();
       }
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
@@ -417,7 +417,6 @@ export default function Home() {
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [desc]: txHash }));
       setDesc(''); setAmount('');
-      await fetchMyRequests(); await fetchUserStats();
       
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
@@ -452,7 +451,6 @@ export default function Home() {
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [id]: txHash }));
       setPayId('');
-      await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
       
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
