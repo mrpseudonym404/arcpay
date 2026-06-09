@@ -633,6 +633,7 @@ export default function Home() {
                 <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Award className="w-5 h-5 text-cyan-400" /> Your Badges</h2>
                 <div className="bg-white/5 rounded-xl p-4 mb-6">
                   <h3 className="text-sm font-semibold mb-2 flex items-center gap-2"><BadgeCheck className="w-4 h-4 text-cyan-400" /> How to Earn Badges</h3>
+                <button onClick={() => { if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') { (async () => { try { const provider = new ethers.BrowserProvider((window as any).ethereum); const signer = await provider.getSigner(); const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer); const hasFirstBadge = await badgeContract.hasBadge(wallet, 0); if (!hasFirstBadge) { setPendingBadge({ id: 0, name: 'First Request' }); setShowMintModal(true); } else { alert('Badge already minted!'); } } catch(e) { console.error(e); alert('Error: ' + e.message); } })(); } }} className="mt-2 text-xs bg-cyan-600/50 hover:bg-cyan-600 px-3 py-1 rounded-full transition">🔍 Check & Mint Badge</button>
                   <div className="text-xs text-gray-400 space-y-1">
                     <p>🎯 First Request — Create your first payment request → Complete to unlock</p>
                     <p>💰 First Payment — Pay any request → Complete to unlock</p>
