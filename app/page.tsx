@@ -352,6 +352,7 @@ export default function Home() {
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
       await badgeContract.checkAndAward(wallet, pendingBadge.id, { gasLimit: 300000 });
+      await new Promise(resolve => setTimeout(resolve, 1500));
       await fetchUserStats();
       await fetchDailyBadgeStatus();
       await fetchTierInfo();
