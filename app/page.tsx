@@ -202,7 +202,7 @@ export default function Home() {
     if (!wallet) return;
     const { ethereum } = window as any;
     if (!ethereum) return;
-    const handleBlock = async () => { await fetchBalance(); await fetchMyRequests(); await fetchUserStats(); await fetchDailyBadgeStatus(); };
+    const handleBlock = async () => { await fetchBalance(); await fetchMyRequests(); await fetchUserStats(); await fetchDailyBadgeStatus(); await fetchTierInfo(); await fetchDailyBadgeStatus(); };
     ethereum.on('block', handleBlock);
     return () => ethereum.removeListener('block', handleBlock);
   }, [wallet]);
@@ -360,7 +360,7 @@ export default function Home() {
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
       await badgeContract.checkAndAwardBadge(wallet, pendingBadge.id, { gasLimit: 300000 });
-      await fetchUserStats();
+      await fetchUserStats(); await fetchDailyBadgeStatus(); await fetchTierInfo();
       setShowMintModal(false);
       setPendingBadge(null);
       showToast(`🎖️ ${pendingBadge.name} badge minted! Check your collection.`, 'success');
@@ -404,7 +404,7 @@ export default function Home() {
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [desc]: txHash }));
       setDesc(''); setAmount('');
-      await fetchMyRequests(); await fetchUserStats();
+      await fetchMyRequests(); await fetchUserStats(); await fetchDailyBadgeStatus(); await fetchTierInfo();
       
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
@@ -444,7 +444,7 @@ export default function Home() {
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [id]: txHash }));
       setPayId('');
-      await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
+      await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats(); await fetchDailyBadgeStatus(); await fetchTierInfo();
       
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
@@ -660,7 +660,7 @@ export default function Home() {
                 <div className="mb-6 p-4 bg-gradient-to-r from-cyan-500/10 to-teal-500/10 rounded-xl border border-cyan-500/30">
                   <p className="text-sm font-medium mb-3 text-center">Need to claim your badge?</p>
                   <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => checkAndMintBadge(0, 'First Request')} className="w-full py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-emerald-600 to-green-600 hover:shadow-lg transition-all hover:scale-105">🎯 First Request</button>
+                    <button onClick={() => checkAndMintBadge(0, 'First Request')} className="w-full py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" + (userBadges[0] ? " bg-gray-600 cursor-default" : " bg-gradient-to-r from-emerald-600 to-green-600 hover:shadow-lg")>🎯 First Request</button>
                     <button onClick={() => checkAndMintBadge(1, 'First Payment')} className="w-full py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-lg transition-all hover:scale-105">💰 First Payment</button>
                     <button onClick={() => checkAndMintBadge(2, '10 Requests')} className="w-full py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg transition-all hover:scale-105">🏆 10 Requests</button>
                     <button onClick={() => checkAndMintBadge(3, '100 USDC Paid')} className="w-full py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-cyan-600 to-teal-600 hover:shadow-lg transition-all hover:scale-105">🐋 100 USDC Paid</button>
