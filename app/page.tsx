@@ -365,7 +365,7 @@ export default function Home() {
       await fetchTierInfo();
       setShowMintModal(false);
       setPendingBadge(null);
-      showToast(`🎖️ ${pendingBadge.name} badge minted! Check your collection.`, 'success');
+      showToast(`🎖️ ${pendingBadge.name} badge minted! Refreshing...`, 'success'); setTimeout(() => { window.location.reload(); }, 2000);
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
