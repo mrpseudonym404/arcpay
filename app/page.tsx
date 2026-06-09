@@ -202,7 +202,7 @@ export default function Home() {
     if (!wallet) return;
     const { ethereum } = window as any;
     if (!ethereum) return;
-    const handleBlock = async () => { await fetchBalance(); await fetchMyRequests(); await fetchUserStats(); await fetchDailyBadgeStatus(); await fetchTierInfo(); await fetchDailyBadgeStatus(); };
+    const handleBlock = async () => { await fetchBalance(); await fetchMyRequests(); await fetchUserStats(); await fetchDailyBadgeStatus(); };
     ethereum.on('block', handleBlock);
     return () => ethereum.removeListener('block', handleBlock);
   }, [wallet]);
@@ -360,7 +360,9 @@ export default function Home() {
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
       await badgeContract.checkAndAwardBadge(wallet, pendingBadge.id, { gasLimit: 300000 });
-      await fetchUserStats(); await fetchDailyBadgeStatus(); await fetchTierInfo();
+      await fetchUserStats();
+      await fetchDailyBadgeStatus();
+      await fetchTierInfo();
       setShowMintModal(false);
       setPendingBadge(null);
       showToast(`🎖️ ${pendingBadge.name} badge minted! Check your collection.`, 'success');
@@ -372,6 +374,10 @@ export default function Home() {
   };
 
   const checkAndMintBadge = async (badgeId: number, badgeName: string) => {
+    if (userBadges[badgeId]) {
+      showToast(`✨ ${badgeName} badge already minted!`, 'success');
+      return;
+    }
     setLoading('Checking badge...');
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
@@ -383,6 +389,7 @@ export default function Home() {
         setShowMintModal(true);
       } else {
         showToast(`✨ ${badgeName} badge already minted!`, 'success');
+        await fetchUserStats();
       }
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
@@ -404,7 +411,7 @@ export default function Home() {
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [desc]: txHash }));
       setDesc(''); setAmount('');
-      await fetchMyRequests(); await fetchUserStats(); await fetchDailyBadgeStatus(); await fetchTierInfo();
+      await fetchMyRequests(); await fetchUserStats();
       
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
@@ -444,7 +451,7 @@ export default function Home() {
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [id]: txHash }));
       setPayId('');
-      await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats(); await fetchDailyBadgeStatus(); await fetchTierInfo();
+      await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
       
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
@@ -656,16 +663,15 @@ export default function Home() {
                   </div>
                 </div>
                 
-                {/* Manual Check & Mint Badge Button - BIG */}
                 <div className="mb-6 p-4 bg-gradient-to-r from-cyan-500/10 to-teal-500/10 rounded-xl border border-cyan-500/30">
                   <p className="text-sm font-medium mb-3 text-center">Need to claim your badge?</p>
                   <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => checkAndMintBadge(0, 'First Request')} className="w-full py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" + (userBadges[0] ? " bg-gray-600 cursor-default" : " bg-gradient-to-r from-emerald-600 to-green-600 hover:shadow-lg")>🎯 First Request</button>
-                    <button onClick={() => checkAndMintBadge(1, 'First Payment')} className="w-full py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-lg transition-all hover:scale-105">💰 First Payment</button>
-                    <button onClick={() => checkAndMintBadge(2, '10 Requests')} className="w-full py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg transition-all hover:scale-105">🏆 10 Requests</button>
-                    <button onClick={() => checkAndMintBadge(3, '100 USDC Paid')} className="w-full py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-cyan-600 to-teal-600 hover:shadow-lg transition-all hover:scale-105">🐋 100 USDC Paid</button>
+                    <button onClick={() => checkAndMintBadge(0, 'First Request')} disabled={userBadges[0]} className="w-full py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-emerald-600 to-green-600 hover:shadow-lg">🎯 First Request</button>
+                    <button onClick={() => checkAndMintBadge(1, 'First Payment')} disabled={userBadges[1]} className="w-full py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-lg">💰 First Payment</button>
+                    <button onClick={() => checkAndMintBadge(2, '10 Requests')} disabled={userBadges[2]} className="w-full py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg">🏆 10 Requests</button>
+                    <button onClick={() => checkAndMintBadge(3, '100 USDC Paid')} disabled={userBadges[3]} className="w-full py-3 rounded-xl text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-cyan-600 to-teal-600 hover:shadow-lg">🐋 100 USDC Paid</button>
                   </div>
-                  <p className="text-xs text-gray-500 text-center mt-3">Click button to check & mint your badge</p>
+                  <p className="text-xs text-gray-500 text-center mt-3">Click button to check & mint your badge (only once per badge)</p>
                 </div>
 
                 <h3 className="font-semibold mb-3 flex items-center gap-2"><Trophy className="w-4 h-4 text-yellow-500" /> Achievements</h3>
@@ -678,7 +684,7 @@ export default function Home() {
 
             {activeTab === 'leaderboard' && (
               <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
-                <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Trophy className="w-5 h-5 text-yellow-500" /> Leaderboard</h2>
+                <h2 className="text-xl font-semibold mb-5 flex-items-center gap-2"><Trophy className="w-5 h-5 text-yellow-500" /> Leaderboard</h2>
                 <div className="space-y-2">
                   {leaderboard.map((user, idx) => (
                     <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/5">
@@ -696,7 +702,7 @@ export default function Home() {
           </>
         )}
 
-        <div className="mt-12 p-5 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 text-center"><h3 className="text-sm font-semibold mb-2 flex items-center justify-center gap-2"><BookOpen className="w-4 h-4 text-cyan-400" /> Quick Tutorial</h3><div className="text-xs text-gray-400 space-x-3 flex flex-wrap justify-center gap-y-2"><span>0️⃣ Get USDC first</span><span>➡️</span><span>1️⃣ Connect</span><span>➡️</span><span>2️⃣ Create</span><span>➡️</span><span>3️⃣ Share ID</span><span>➡️</span><span>4️⃣ Pay</span><span>➡️</span><span>5️⃣ Done ✅</span></div><p className="text-[10px] text-gray-500 mt-2 flex items-center justify-center gap-1">💰 Need USDC? Get from <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline flex items-center gap-1"><Droplet className="w-3 h-3" /> Circle Faucet</a> (select Arc Testnet)</p><p className="text-[10px] text-gray-500 mt-1 flex items-center justify-center gap-1">❓ Click the <HelpCircle className="w-3 h-3" /> button for full tutorial</p></div>
+        <div className="mt-12 p-5 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 text-center"><h3 className="text-sm font-semibold mb-2 flex-items-center justify-center gap-2"><BookOpen className="w-4 h-4 text-cyan-400" /> Quick Tutorial</h3><div className="text-xs text-gray-400 space-x-3 flex flex-wrap justify-center gap-y-2"><span>0️⃣ Get USDC first</span><span>➡️</span><span>1️⃣ Connect</span><span>➡️</span><span>2️⃣ Create</span><span>➡️</span><span>3️⃣ Share ID</span><span>➡️</span><span>4️⃣ Pay</span><span>➡️</span><span>5️⃣ Done ✅</span></div><p className="text-[10px] text-gray-500 mt-2 flex items-center justify-center gap-1">💰 Need USDC? Get from <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline flex items-center gap-1"><Droplet className="w-3 h-3" /> Circle Faucet</a> (select Arc Testnet)</p><p className="text-[10px] text-gray-500 mt-1 flex items-center justify-center gap-1">❓ Click the <HelpCircle className="w-3 h-3" /> button for full tutorial</p></div>
 
         <div className="text-center mt-10 pt-6 border-t border-white/10">
           <p className="text-sm font-medium glow-text bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent animate-pulse flex items-center justify-center gap-2">✦ Build on Arc by Circle ✦</p>
