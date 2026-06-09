@@ -107,6 +107,28 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, loading }: {
   );
 };
 
+const MintBadgeModal = ({ isOpen, onClose, onMint, badgeName, loading }: { isOpen: boolean; onClose: () => void; onMint: () => void; badgeName: string; loading: boolean }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 max-w-md w-full mx-4 border border-white/20 shadow-2xl">
+        <div className="text-center mb-4">
+          <div className="text-6xl mb-2">🎉</div>
+          <h3 className="text-2xl font-bold">Badge Earned!</h3>
+          <p className="text-gray-300 text-sm mt-2">You've unlocked: <span className="text-cyan-400 font-bold">{badgeName}</span></p>
+        </div>
+        <p className="text-gray-400 text-sm text-center mb-6">Mint this badge to add it to your collection and earn points.</p>
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 transition text-sm" disabled={loading}>Later</button>
+          <button onClick={onMint} className="flex-1 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:shadow-lg hover:shadow-cyan-500/30 transition-all hover:scale-105 disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2" disabled={loading}>
+            {loading ? <><Zap className="w-4 h-4 animate-spin" /> Minting...</> : <><Award className="w-4 h-4" /> Mint Badge</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function Home() {
   const [wallet, setWallet] = useState('');
   const [balance, setBalance] = useState('0');
@@ -141,6 +163,8 @@ export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [requestsPage, setRequestsPage] = useState(1);
   const [paymentsPage, setPaymentsPage] = useState(1);
+  const [showMintModal, setShowMintModal] = useState(false);
+  const [pendingBadge, setPendingBadge] = useState<{id: number, name: string} | null>(null);
   const itemsPerPage = 5;
 
   useEffect(() => {
@@ -329,6 +353,25 @@ export default function Home() {
     showToast('Wallet disconnected', 'success');
   }
 
+  const handleMintBadge = async () => {
+    if (!pendingBadge) return;
+    setLoading('Minting badge...');
+    try {
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const signer = await provider.getSigner();
+      const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
+      await badgeContract.checkAndAwardBadge(wallet, pendingBadge.id);
+      await fetchUserStats();
+      setShowMintModal(false);
+      setPendingBadge(null);
+      showToast(`🎖️ ${pendingBadge.name} badge minted! Check your collection.`, 'success');
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    } catch(e: any) {
+      showToast(e.message?.slice(0,60), 'error');
+    }
+    setLoading('');
+  };
+
   async function createRequest() {
     if (!desc || !amount) return showToast('Fill description & amount', 'error');
     if (parseFloat(amount) <= 0) return showToast('Amount must be greater than 0', 'error');
@@ -339,26 +382,30 @@ export default function Home() {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
       const amt = ethers.parseUnits(amount, 18);
       const tx = await contract.createRequest(desc, amt);
-      await tx.wait();
+      const receipt = await tx.wait();
+      const txHash = receipt.hash;
+      setTxHashes(prev => ({ ...prev, [desc]: txHash }));
       setDesc(''); setAmount('');
       await fetchMyRequests(); await fetchUserStats();
       
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
           const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
+          await badgeContract.updateStats(wallet, 1, 0);
           const hasFirstBadge = await badgeContract.hasBadge(wallet, 0);
           if (!hasFirstBadge) {
-            await badgeContract.checkAndAwardBadge(wallet, 0);
-            showToast('🎯 Badge Unlocked: First Request! ✨ Check Badges tab ✨', 'success');
+            setPendingBadge({ id: 0, name: 'First Request' });
+            setShowMintModal(true);
           }
           const hasTenBadges = await badgeContract.hasBadge(wallet, 2);
           if (!hasTenBadges && myRequests.length + 1 >= 10) {
-            await badgeContract.checkAndAwardBadge(wallet, 2);
-            showToast('🏆 Badge Unlocked: 10 Requests! ✨ Check Badges tab ✨', 'success');
+            setPendingBadge({ id: 2, name: '10 Requests' });
+            setShowMintModal(true);
           }
         } catch (badgeError) { console.error("Badge award failed:", badgeError); }
       }
-      showToast(`✅ Request created. ${vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)]}`, 'success');
+      const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
+      showToast(`✅ Request created. ${randomVibe}`, 'success', txHash);
     } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
     setLoading('');
   }
@@ -375,28 +422,32 @@ export default function Home() {
       const req = await contract.requests(id);
       const amountInWei = req.amount;
       const tx = await contract.payRequest(id, { value: amountInWei, gasLimit: 500000 });
-      await tx.wait();
+      const receipt = await tx.wait();
+      const txHash = receipt.hash;
+      setTxHashes(prev => ({ ...prev, [id]: txHash }));
       setPayId('');
       await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
       
       if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
           const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
+          await badgeContract.updateStats(wallet, 0, Number(ethers.formatUnits(amountInWei, 18)));
           const hasFirstPayment = await badgeContract.hasBadge(wallet, 1);
           if (!hasFirstPayment) {
-            await badgeContract.checkAndAwardBadge(wallet, 1);
-            showToast('💰 Badge Unlocked: First Payment! ✨ Check Badges tab ✨', 'success');
+            setPendingBadge({ id: 1, name: 'First Payment' });
+            setShowMintModal(true);
           }
           const totalPaid = myPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0) + parseFloat(ethers.formatUnits(amountInWei, 18));
           const hasHundredPaid = await badgeContract.hasBadge(wallet, 3);
           if (!hasHundredPaid && totalPaid >= 100) {
-            await badgeContract.checkAndAwardBadge(wallet, 3);
-            showToast('🐋 Badge Unlocked: 100 USDC Paid! ✨ Check Badges tab ✨', 'success');
+            setPendingBadge({ id: 3, name: '100 USDC Paid' });
+            setShowMintModal(true);
           }
         } catch (badgeError) { console.error("Badge award failed:", badgeError); }
       }
       confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ['#10b981', '#06b6d4', '#f43f5e'] });
-      showToast(`🎉 Payment sent. ${vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)]}`, 'success');
+      const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
+      showToast(`🎉 Payment sent. ${randomVibe}`, 'success', txHash);
     } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
     setLoading('');
   }, [pendingPayId]);
@@ -430,10 +481,18 @@ export default function Home() {
       `}</style>
 
       <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Gas fee: ${gasEstimate || '~0.001 USDC'}.`} loading={loading === 'Processing payment...'} />
+      <MintBadgeModal isOpen={showMintModal} onClose={() => { setShowMintModal(false); setPendingBadge(null); }} onMint={handleMintBadge} badgeName={pendingBadge?.name || ''} loading={loading === 'Minting badge...'} />
 
       {toast && (
-        <div className={`fixed bottom-5 left-5 z-50 px-6 py-4 rounded-xl shadow-2xl backdrop-blur-md text-base font-medium ${toast.type === 'success' ? 'bg-green-600/90' : 'bg-red-600/90'} text-white animate-fadeIn max-w-sm cursor-pointer hover:scale-105 transition-all`} onClick={() => { if (toast.txHash) window.open(`https://testnet.arcscan.app/tx/${toast.txHash}`, '_blank'); }}>
-          <div className="flex items-center gap-2 flex-wrap"><span className="text-xl">{toast.type === 'success' ? '✅' : '❌'}</span><span>{toast.msg}</span>{toast.txHash && <span className="text-xs underline ml-1 text-cyan-200">🔗 click to view</span>}</div>
+        <div 
+          className={`fixed bottom-5 left-5 z-50 px-6 py-4 rounded-xl shadow-2xl backdrop-blur-md text-base font-medium ${toast.type === 'success' ? 'bg-green-600/90' : 'bg-red-600/90'} text-white animate-fadeIn max-w-sm cursor-pointer hover:scale-105 transition-all`}
+          onClick={() => { if (toast.txHash) window.open(`https://testnet.arcscan.app/tx/${toast.txHash}`, '_blank'); }}
+        >
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xl">{toast.type === 'success' ? '✅' : '❌'}</span>
+            <span>{toast.msg}</span>
+            {toast.txHash && <span className="text-xs underline ml-1 text-cyan-200">🔗 View on ArcScan</span>}
+          </div>
         </div>
       )}
 
@@ -510,7 +569,7 @@ export default function Home() {
             </div>
           </div>
           <div className={`${cardBg} rounded-2xl p-6 border ${borderClass} transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-cyan-500/20`}>
-            <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Send className="w-5 h-5 text-cyan-400" /> Pay Request</h2>
+            <h2 className="text-xl font-semibold mb-5 flex-items-center gap-2"><Send className="w-5 h-5 text-cyan-400" /> Pay Request</h2>
             <div className="space-y-4">
               <input type="text" placeholder="Request ID (0x...)" value={payId} onChange={(e) => setPayId(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-cyan-500 transition`} />
               {gasEstimate && <div className="text-xs text-gray-400 text-center">⛽ Estimated gas: {gasEstimate}</div>}
@@ -588,7 +647,7 @@ export default function Home() {
 
             {activeTab === 'leaderboard' && (
               <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
-                <h2 className="text-xl font-semibold mb-5 flex-items-center gap-2"><Trophy className="w-5 h-5 text-yellow-500" /> Leaderboard</h2>
+                <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Trophy className="w-5 h-5 text-yellow-500" /> Leaderboard</h2>
                 <div className="space-y-2">
                   {leaderboard.map((user, idx) => (
                     <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/5">
