@@ -359,7 +359,14 @@ export default function Home() {
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
       await badgeContract.mintBadge(pendingBadge.id, { gasLimit: 300000 });
-      await fetchUserStats();
+      // Polling badge status
+      let retries = 0;
+      while (retries < 5) {
+        await new Promise(r => setTimeout(r, 1000));
+        await fetchUserStats();
+        if (userBadges[pendingBadge.id]) break;
+        retries++;
+      }
       await fetchDailyBadgeStatus();
       await fetchTierInfo();
       setShowMintModal(false);
