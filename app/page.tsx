@@ -14,7 +14,7 @@ import {
 const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
 const ARC_CHAIN_ID = '0x4CEF52';
-const BADGE_CONTRACT_ADDRESS = '0x5cddce16A511F9B6826cF4Da82E6A151f6935288';
+const SIMPLE_BADGE_ADDRESS = '0xEFD53186586EeBedEccD24AF86554650083DDEFd';
 const DAILY_BADGE_CONTRACT_ADDRESS = '0xA9323D36E49aC6aC49F38aAd431f4C2b69280475';
 
 const CONTRACT_ABI = [
@@ -25,15 +25,11 @@ const CONTRACT_ABI = [
   'function getPayerHistoryWithDetails(address payer) view returns (bytes32[], uint256[], string[], bool[])'
 ];
 
-const BADGE_ABI = [
-  'function points(address) view returns (uint256)',
-  'function totalRequestsCreated(address) view returns (uint256)',
-  'function totalUSPCPaid(address) view returns (uint256)',
-  'function streakDays(address) view returns (uint256)',
+const SIMPLE_BADGE_ABI = [
+  'function awardBadge(address, uint8)',
+  'function checkAndAward(address, uint8)',
   'function hasBadge(address, uint8) view returns (bool)',
-  'function checkAndAwardBadge(address, uint8)',
-  'function updateStats(address, uint256, uint256)',
-  'function updateStreak(address)'
+  'function getPoints(address) view returns (uint256)'
 ];
 
 const DAILY_BADGE_ABI = [
@@ -253,12 +249,12 @@ export default function Home() {
   }
 
   async function fetchUserStats() {
-    if (!wallet || BADGE_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000') return;
+    if (!wallet || SIMPLE_BADGE_ADDRESS === '0x0000000000000000000000000000000000000000') return;
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
-      const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, provider);
-      setUserPoints(Number(await badgeContract.points(wallet)));
-      setUserStreak(Number(await badgeContract.streakDays(wallet)));
+      const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, provider);
+      const points = await badgeContract.getPoints(wallet);
+      setUserPoints(Number(points));
       const badges = await Promise.all(badgeConfig.map(async (b) => await badgeContract.hasBadge(wallet, b.id)));
       setUserBadges(badges);
     } catch (err) { console.error(err); }
@@ -337,10 +333,6 @@ export default function Home() {
       const address = await signer.getAddress();
       setWallet(address);
       showToast(`Connected: ${address.slice(0,6)}...${address.slice(-4)}`, 'success');
-      if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
-        const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
-        try { await badgeContract.updateStreak(address); } catch(e) {}
-      }
       await fetchDailyBadgeStatus(); await fetchTierInfo();
     } catch (err: any) { showToast(err.message?.slice(0, 100), 'error'); }
     setIsConnecting(false);
@@ -358,15 +350,16 @@ export default function Home() {
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
-      const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
-      await badgeContract.checkAndAwardBadge(wallet, pendingBadge.id, { gasLimit: 300000 });
+      const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
+      await badgeContract.checkAndAward(wallet, pendingBadge.id, { gasLimit: 300000 });
       await fetchUserStats();
       await fetchDailyBadgeStatus();
       await fetchTierInfo();
       setShowMintModal(false);
       setPendingBadge(null);
-      showToast(`🎖️ ${pendingBadge.name} badge minted! Refreshing...`, 'success'); setTimeout(() => { window.location.reload(); }, 2000);
+      showToast(`🎖️ ${pendingBadge.name} badge minted! Refreshing...`, 'success');
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      setTimeout(() => { window.location.reload(); }, 2000);
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
     }
@@ -382,7 +375,7 @@ export default function Home() {
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
-      const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
+      const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
       const hasBadge = await badgeContract.hasBadge(wallet, badgeId);
       if (!hasBadge) {
         setPendingBadge({ id: badgeId, name: badgeName });
@@ -413,18 +406,12 @@ export default function Home() {
       setDesc(''); setAmount('');
       await fetchMyRequests(); await fetchUserStats();
       
-      if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
+      if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
-          const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
-          await badgeContract.updateStats(wallet, 1, 0, { gasLimit: 300000 });
+          const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
           const hasFirstBadge = await badgeContract.hasBadge(wallet, 0);
           if (!hasFirstBadge) {
             setPendingBadge({ id: 0, name: 'First Request' });
-            setShowMintModal(true);
-          }
-          const hasTenBadges = await badgeContract.hasBadge(wallet, 2);
-          if (!hasTenBadges && myRequests.length + 1 >= 10) {
-            setPendingBadge({ id: 2, name: '10 Requests' });
             setShowMintModal(true);
           }
         } catch (badgeError) { console.error("Badge award failed:", badgeError); }
@@ -453,19 +440,12 @@ export default function Home() {
       setPayId('');
       await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
       
-      if (BADGE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000') {
+      if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
-          const badgeContract = new ethers.Contract(BADGE_CONTRACT_ADDRESS, BADGE_ABI, signer);
-          await badgeContract.updateStats(wallet, 0, Number(ethers.formatUnits(amountInWei, 18)), { gasLimit: 300000 });
+          const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
           const hasFirstPayment = await badgeContract.hasBadge(wallet, 1);
           if (!hasFirstPayment) {
             setPendingBadge({ id: 1, name: 'First Payment' });
-            setShowMintModal(true);
-          }
-          const totalPaid = myPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0) + parseFloat(ethers.formatUnits(amountInWei, 18));
-          const hasHundredPaid = await badgeContract.hasBadge(wallet, 3);
-          if (!hasHundredPaid && totalPaid >= 100) {
-            setPendingBadge({ id: 3, name: '100 USDC Paid' });
             setShowMintModal(true);
           }
         } catch (badgeError) { console.error("Badge award failed:", badgeError); }
