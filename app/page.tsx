@@ -37,7 +37,6 @@ const SIMPLE_BADGE_ABI = [
 const DAILY_BADGE_ABI = [
   'function mintDailyBadge() external',
   'function canMintToday(address) view returns (bool)',
-  'function totalBadges(address) view returns (uint256)',
   'function mintStreak(address) view returns (uint256)',
   'function getTierInfo(uint256) view returns (string, string)'
 ];
@@ -152,7 +151,6 @@ export default function Home() {
   const [userPoints, setUserPoints] = useState(0);
   const [userStreak, setUserStreak] = useState(0);
   const [userBadges, setUserBadges] = useState<boolean[]>(Array(6).fill(false));
-  const [totalBadges, setTotalBadges] = useState(0);
   const [dailyStreak, setDailyStreak] = useState(0);
   const [canMintToday, setCanMintToday] = useState(false);
   const [tierName, setTierName] = useState('Unranked');
@@ -220,7 +218,6 @@ export default function Home() {
       const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, provider);
       setCanMintToday(await badgeContract.canMintToday(wallet));
       setDailyStreak(Number(await badgeContract.mintStreak(wallet)));
-      setTotalBadges(Number(await badgeContract.totalBadges(wallet)));
     } catch (err) { console.error(err); }
   }
 
@@ -229,7 +226,6 @@ export default function Home() {
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, provider);
-      const total = await badgeContract.totalBadges(wallet);
       const [name, icon] = await badgeContract.getTierInfo(Number(total));
       setTierName(name); setTierIcon(icon);
     } catch (err) { console.error(err); }
@@ -532,7 +528,6 @@ export default function Home() {
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                   <span className="font-mono text-xs md:text-sm">{wallet.slice(0,6)}...{wallet.slice(-4)}</span>
                   <span className="text-xs bg-gradient-to-r from-pink-500/30 to-cyan-500/30 px-1.5 py-0.5 rounded-full">{parseFloat(balance).toFixed(2)} USDC</span>
-                  <span className="hidden md:inline-flex text-xs bg-yellow-500/30 px-2 py-0.5 rounded-full items-center gap-1"><Award className="w-3 h-3" /> {totalBadges}</span>
                   <span className="hidden md:inline-flex text-xs bg-purple-500/30 px-2 py-0.5 rounded-full items-center gap-1"><Star className="w-3 h-3" /> {userPoints}</span>
                 </div>
                 <button onClick={disconnectWallet} className="text-gray-300 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 transition text-sm">🔌</button>
@@ -599,7 +594,6 @@ export default function Home() {
               <div>
                 <div className="flex items-center gap-2"><h3 className="font-semibold">Daily Badge</h3>{dailyStreak > 0 && <span className="text-xs bg-orange-500/30 px-2 py-0.5 rounded-full flex items-center gap-1"><Flame className="w-3 h-3" /> {dailyStreak} day streak</span>}</div>
                 <p className="text-xs text-gray-400">Mint 1 badge every day. Streak rewards at 7 days!</p>
-                {tierName !== 'Unranked' && <p className="text-xs text-cyan-400 mt-1">{tierIcon} {tierName} • {totalBadges} badges collected</p>}
               </div>
             </div>
             <button onClick={mintDailyBadge} disabled={!canMintToday || loading !== ''} className={`px-5 py-2 rounded-xl font-medium text-sm transition-all hover:scale-105 flex items-center gap-2 ${canMintToday ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:shadow-lg hover:shadow-yellow-500/30' : 'bg-gray-600/50 cursor-not-allowed'}`}>{canMintToday ? <><Gift className="w-4 h-4" /> Mint Today's Badge</> : <><CheckCircle className="w-4 h-4" /> Already Minted</>}</button>
@@ -646,7 +640,6 @@ export default function Home() {
                 <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-2xl p-5 mb-6 border border-white/10">
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <div><p className="text-xs text-gray-400">Current Tier</p><p className="text-2xl font-bold flex items-center gap-2">{tierIcon} {tierName}</p></div>
-                    <div><p className="text-xs text-gray-400">Total Badges</p><p className="text-2xl font-bold">{totalBadges}</p></div>
                     <div><p className="text-xs text-gray-400">Daily Streak</p><p className="text-2xl font-bold flex items-center gap-1"><Flame className="w-5 h-5 text-orange-500" /> {dailyStreak}</p></div>
                     <div><p className="text-xs text-gray-400">Points</p><p className="text-2xl font-bold flex items-center gap-1"><Star className="w-5 h-5 text-yellow-500" /> {userPoints}</p></div>
                   </div>
