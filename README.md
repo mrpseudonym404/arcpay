@@ -95,7 +95,7 @@ ArcPay uses **three smart contracts** deployed on Arc Testnet:
 | Contract | Address | Purpose |
 |----------|---------|---------|
 | **ArcPayFixedV2** | `0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630` | Main payment contract — create & pay requests, on-chain history |
-| **ArcPayBadge** | `0xEFD53186586EeBedEccD24AF86554650083DDEFd` | Achievement badge system — First Request, First Payment, 10 Requests, 100 USDC Paid, Legend |
+| **ArcPayBadge** | `0x4ceB5d7AB432339eCe9Ed41E3B93fF2466834Cd8` | Achievement badge system — First Request, First Payment, 10 Requests, 100 USDC Paid, Legend |
 | **ArcPayDailyBadge** | `0xA9323D36E49aC6aC49F38aAd431f4C2b69280475` | Daily badge system — mint one badge per day, streak rewards, tier levels |
 
 **[View all contracts on ArcScan](https://testnet.arcscan.app/address/0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630)**
