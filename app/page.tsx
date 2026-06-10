@@ -26,13 +26,12 @@ const CONTRACT_ABI = [
 ];
 
 const SIMPLE_BADGE_ABI = [
-  'function updateStats(address, uint256, uint256)',
-  'function updateStreak(address)',
   'function checkEligibility(address, uint8) view returns (bool)',
   'function mintBadge(uint8)',
   'function hasBadge(address, uint8) view returns (bool)',
   'function getPoints(address) view returns (uint256)',
-  'function getUserStats(address) view returns (uint256, uint256, uint256, uint256)'
+  'function getUserStats(address) view returns (uint256, uint256, uint256, uint256, uint256)',
+  'function getTierInfo(uint256) view returns (string, string)'
 ];
 
 const DAILY_BADGE_ABI = [
@@ -201,6 +200,7 @@ export default function Home() {
     if (!wallet) return;
     const { ethereum } = window as any;
     if (!ethereum) return;
+    const handleBlock = async () => { await fetchBalance(); await fetchMyRequests(); await fetchUserStats(); await fetchDailyBadgeStatus(); };
     ethereum.on('block', handleBlock);
     return () => ethereum.removeListener('block', handleBlock);
   }, [wallet]);
@@ -225,10 +225,10 @@ export default function Home() {
   }
 
   async function fetchTierInfo() {
-    if (!wallet || DAILY_BADGE_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000') return;
+    if (!wallet || SIMPLE_BADGE_ADDRESS === '0x0000000000000000000000000000000000000000') return;
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
-      const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, provider);
+      const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, provider);
       const total = await badgeContract.totalBadges(wallet);
       const [name, icon] = await badgeContract.getTierInfo(Number(total));
       setTierName(name); setTierIcon(icon);
@@ -243,6 +243,7 @@ export default function Home() {
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, signer);
       await (await badgeContract.mintDailyBadge()).wait();
+      await fetchDailyBadgeStatus(); await fetchTierInfo();
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#fbbf24', '#f59e0b', '#ef4444'] });
       showToast('🎖️ Daily badge minted! Come back tomorrow for another one!', 'success');
     } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
@@ -301,7 +302,7 @@ export default function Home() {
       const ids = await contract.getRequests(wallet);
       const requestsData = await Promise.all(ids.map(async (id: string) => {
         const req = await contract.requests(id);
-        return { id, description: req.description, amount: req.amount, paid: req.paid };
+        return { id, description: req.description, amount: ethers.formatUnits(req.amount, 18), paid: req.paid };
       }));
       setMyRequests(requestsData.reverse());
     } catch (err) { console.error(err); }
@@ -335,10 +336,7 @@ export default function Home() {
       const address = await signer.getAddress();
       setWallet(address);
       showToast(`Connected: ${address.slice(0,6)}...${address.slice(-4)}`, 'success');
-      if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
-        const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
-        try { await badgeContract.updateStreak(address); } catch(e) {}
-      }
+      await fetchDailyBadgeStatus(); await fetchTierInfo();
     } catch (err: any) { showToast(err.message?.slice(0, 100), 'error'); }
     setIsConnecting(false);
   }
@@ -358,12 +356,11 @@ export default function Home() {
       const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
       await badgeContract.mintBadge(pendingBadge.id, { gasLimit: 300000 });
       
+      await fetchUserStats();
+      await fetchDailyBadgeStatus();
+      await fetchTierInfo();
+      
       setShowMintModal(false);
-
-        // Refresh badge list setelah mint
-        await fetchUserStats();
-        await fetchDailyBadgeStatus();
-        await fetchTierInfo();
       setPendingBadge(null);
       showToast(`🎖️ ${pendingBadge.name} badge minted!`, 'success');
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
@@ -389,6 +386,7 @@ export default function Home() {
         setShowMintModal(true);
       } else {
         showToast(`✨ ${badgeName} badge already minted!`, 'success');
+        await fetchUserStats();
       }
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
@@ -410,18 +408,19 @@ export default function Home() {
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [desc]: txHash }));
       setDesc(''); setAmount('');
+      await fetchMyRequests(); await fetchUserStats();
       
-      if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
-        try {
-          const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
-          await badgeContract.updateStats(wallet, 1, 0, { gasLimit: 300000 });
-          const hasFirstBadge = await badgeContract.hasBadge(wallet, 0);
-          if (!hasFirstBadge) {
-            setPendingBadge({ id: 0, name: 'First Request' });
-            setShowMintModal(true);
-          }
-        } catch (badgeError) { console.error("Badge award failed:", badgeError); }
-      }
+      // Cek eligibility untuk First Request badge
+      try {
+        const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
+        const isEligible = await badgeContract.checkEligibility(wallet, 0);
+        const hasBadge = await badgeContract.hasBadge(wallet, 0);
+        if (isEligible && !hasBadge) {
+          setPendingBadge({ id: 0, name: 'First Request' });
+          setShowMintModal(true);
+        }
+      } catch (badgeError) { console.error("Badge check failed:", badgeError); }
+      
       const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
       showToast(`✅ Request created. ${randomVibe}`, 'success', txHash);
     } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
@@ -445,18 +444,19 @@ export default function Home() {
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [id]: txHash }));
       setPayId('');
+      await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
       
-      if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
-        try {
-          const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
-          await badgeContract.updateStats(wallet, 0, amountInWei, { gasLimit: 300000 });
-          const hasFirstPayment = await badgeContract.hasBadge(wallet, 1);
-          if (!hasFirstPayment) {
-            setPendingBadge({ id: 1, name: 'First Payment' });
-            setShowMintModal(true);
-          }
-        } catch (badgeError) { console.error("Badge award failed:", badgeError); }
-      }
+      // Cek eligibility untuk First Payment badge
+      try {
+        const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
+        const isEligible = await badgeContract.checkEligibility(wallet, 1);
+        const hasBadge = await badgeContract.hasBadge(wallet, 1);
+        if (isEligible && !hasBadge) {
+          setPendingBadge({ id: 1, name: 'First Payment' });
+          setShowMintModal(true);
+        }
+      } catch (badgeError) { console.error("Badge check failed:", badgeError); }
+      
       confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ['#10b981', '#06b6d4', '#f43f5e'] });
       const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
       showToast(`🎉 Payment sent. ${randomVibe}`, 'success', txHash);
@@ -494,11 +494,6 @@ export default function Home() {
 
       <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Gas fee: ${gasEstimate || '~0.001 USDC'}.`} loading={loading === 'Processing payment...'} />
       <MintBadgeModal isOpen={showMintModal} onClose={() => { setShowMintModal(false); setPendingBadge(null); }} onMint={handleMintBadge} badgeName={pendingBadge?.name || ''} loading={loading === 'Minting badge...'} />
-
-        // Refresh badge list setelah mint
-        await fetchUserStats();
-        await fetchDailyBadgeStatus();
-        await fetchTierInfo();
 
       {toast && (
         <div 
@@ -586,7 +581,7 @@ export default function Home() {
             </div>
           </div>
           <div className={`${cardBg} rounded-2xl p-6 border ${borderClass} transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-cyan-500/20`}>
-            <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Send className="w-5 h-5 text-cyan-400" /> Pay Request</h2>
+            <h2 className="text-xl font-semibold mb-5 flex-items-center gap-2"><Send className="w-5 h-5 text-cyan-400" /> Pay Request</h2>
             <div className="space-y-4">
               <input type="text" placeholder="Request ID (0x...)" value={payId} onChange={(e) => setPayId(e.target.value)} className={`w-full ${inputBg} border ${borderClass} rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-cyan-500 transition`} />
               {gasEstimate && <div className="text-xs text-gray-400 text-center">⛽ Estimated gas: {gasEstimate}</div>}
@@ -621,7 +616,7 @@ export default function Home() {
             {activeTab === 'requests' && (
               <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
                 <div className="flex flex-wrap justify-between items-center mb-5 gap-3"><h2 className="text-xl font-semibold flex items-center gap-2"><Layers className="w-5 h-5 text-cyan-400" /> My Requests</h2><div className="flex gap-2"><div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" /><input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputBg} border ${borderClass} rounded-xl pl-8 pr-3 py-1.5 text-sm w-32 sm:w-40 focus:outline-none focus:border-cyan-500`} /></div><select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500`}><option value="all">All</option><option value="pending">Pending</option><option value="paid">Paid</option></select></div></div>
-                {isFetching ? <div className="space-y-3"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div> : paginatedRequests.length === 0 ? <div className="text-center py-12"><div className="text-6xl mb-3">📭</div><p className="text-gray-400">No requests yet</p><button onClick={() => setShowTutorial(true)} className="mt-3 text-xs text-cyan-400 hover:text-cyan-300">❓ Need help?</button></div> : <div className="space-y-3">{paginatedRequests.map((req, idx) => (<div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all hover:scale-[1.01]"><div className="flex flex-wrap justify-between items-start gap-2"><div className="flex-1"><p className="font-medium truncate">{req.description}</p><div className="flex flex-wrap items-center gap-2 mt-1"><p className="text-xs text-gray-400 font-mono">{truncateHash(req.id)}</p><button onClick={() => copyToClipboard(req.id)} className="bg-gray-700 hover:bg-cyan-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Copy className="w-3 h-3" /> Copy</button><button onClick={() => shareRequestLink(req.id)} className="bg-gray-700 hover:bg-green-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Share2 className="w-3 h-3" /> Share</button>{txHashes[req.id] && <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Tx</a>}</div><p className="text-xs text-cyan-300 mt-1">{ethers.formatUnits(req.amount, 18)} USDC</p></div><span className={`text-xs px-3 py-1 rounded-full border ${req.paid ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>{req.paid ? <><CheckCircle className="w-3 h-3 inline mr-1" /> Paid</> : <><Clock className="w-3 h-3 inline mr-1" /> Pending</>}</span></div></div>))}<Pagination currentPage={requestsPage} totalPages={Math.ceil(filteredRequests.length / itemsPerPage)} onPageChange={setRequestsPage} /></div>}
+                {isFetching ? <div className="space-y-3"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div> : paginatedRequests.length === 0 ? <div className="text-center py-12"><div className="text-6xl mb-3">📭</div><p className="text-gray-400">No requests yet</p><button onClick={() => setShowTutorial(true)} className="mt-3 text-xs text-cyan-400 hover:text-cyan-300">❓ Need help?</button></div> : <div className="space-y-3">{paginatedRequests.map((req, idx) => (<div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all hover:scale-[1.01]"><div className="flex flex-wrap justify-between items-start gap-2"><div className="flex-1"><p className="font-medium truncate">{req.description}</p><div className="flex flex-wrap items-center gap-2 mt-1"><p className="text-xs text-gray-400 font-mono">{truncateHash(req.id)}</p><button onClick={() => copyToClipboard(req.id)} className="bg-gray-700 hover:bg-cyan-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Copy className="w-3 h-3" /> Copy</button><button onClick={() => shareRequestLink(req.id)} className="bg-gray-700 hover:bg-green-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Share2 className="w-3 h-3" /> Share</button>{txHashes[req.id] && <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Tx</a>}</div><p className="text-xs text-cyan-300 mt-1">{req.amount} USDC</p></div><span className={`text-xs px-3 py-1 rounded-full border ${req.paid ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>{req.paid ? <><CheckCircle className="w-3 h-3 inline mr-1" /> Paid</> : <><Clock className="w-3 h-3 inline mr-1" /> Pending</>}</span></div></div>))}<Pagination currentPage={requestsPage} totalPages={Math.ceil(filteredRequests.length / itemsPerPage)} onPageChange={setRequestsPage} /></div>}
               </div>
             )}
 
