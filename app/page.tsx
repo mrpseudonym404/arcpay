@@ -201,7 +201,6 @@ export default function Home() {
     if (!wallet) return;
     const { ethereum } = window as any;
     if (!ethereum) return;
-    const handleBlock = async () => { await fetchBalance(); await fetchMyRequests(); await fetchUserStats(); await fetchDailyBadgeStatus(); };
     ethereum.on('block', handleBlock);
     return () => ethereum.removeListener('block', handleBlock);
   }, [wallet]);
@@ -244,7 +243,6 @@ export default function Home() {
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, signer);
       await (await badgeContract.mintDailyBadge()).wait();
-      await fetchDailyBadgeStatus(); await fetchTierInfo();
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#fbbf24', '#f59e0b', '#ef4444'] });
       showToast('🎖️ Daily badge minted! Come back tomorrow for another one!', 'success');
     } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
@@ -341,7 +339,6 @@ export default function Home() {
         const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
         try { await badgeContract.updateStreak(address); } catch(e) {}
       }
-      await fetchDailyBadgeStatus(); await fetchTierInfo();
     } catch (err: any) { showToast(err.message?.slice(0, 100), 'error'); }
     setIsConnecting(false);
   }
@@ -353,10 +350,6 @@ export default function Home() {
   }
 
   const handleMintBadge = async () => {
-    // Refresh badge list setelah mint
-    await fetchUserStats();
-    await fetchDailyBadgeStatus();
-    await fetchTierInfo();
     if (!pendingBadge) return;
     setLoading('Minting badge...');
     try {
@@ -365,10 +358,12 @@ export default function Home() {
       const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
       await badgeContract.mintBadge(pendingBadge.id, { gasLimit: 300000 });
       
-      await fetchUserStats();
-      await fetchDailyBadgeStatus();
-      await fetchTierInfo();
       setShowMintModal(false);
+
+        // Refresh badge list setelah mint
+        await fetchUserStats();
+        await fetchDailyBadgeStatus();
+        await fetchTierInfo();
       setPendingBadge(null);
       showToast(`🎖️ ${pendingBadge.name} badge minted!`, 'success');
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
@@ -394,7 +389,6 @@ export default function Home() {
         setShowMintModal(true);
       } else {
         showToast(`✨ ${badgeName} badge already minted!`, 'success');
-        await fetchUserStats();
       }
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
@@ -416,7 +410,6 @@ export default function Home() {
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [desc]: txHash }));
       setDesc(''); setAmount('');
-      await fetchMyRequests(); await fetchUserStats();
       
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
@@ -452,7 +445,6 @@ export default function Home() {
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [id]: txHash }));
       setPayId('');
-      await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
       
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
@@ -502,10 +494,11 @@ export default function Home() {
 
       <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Gas fee: ${gasEstimate || '~0.001 USDC'}.`} loading={loading === 'Processing payment...'} />
       <MintBadgeModal isOpen={showMintModal} onClose={() => { setShowMintModal(false); setPendingBadge(null); }} onMint={handleMintBadge} badgeName={pendingBadge?.name || ''} loading={loading === 'Minting badge...'} />
-    // Refresh badge list setelah mint
-    await fetchUserStats();
-    await fetchDailyBadgeStatus();
-    await fetchTierInfo();
+
+        // Refresh badge list setelah mint
+        await fetchUserStats();
+        await fetchDailyBadgeStatus();
+        await fetchTierInfo();
 
       {toast && (
         <div 
