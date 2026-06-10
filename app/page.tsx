@@ -519,7 +519,7 @@ export default function Home() {
             <h3 className="text-xl font-bold mb-4">Scan to Pay</h3>
             <div className="bg-white p-4 rounded-xl inline-block mx-auto">
               <div className="w-48 h-48 bg-white rounded-lg flex items-center justify-center">
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin}/#reqId=${qrRequestId)`} alt="QR Code" className="w-48 h-48" />
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin}/#reqId=${qrRequestId)`}data=${encodeURIComponent(window.location.origin + "/#reqId=" + qrRequestId)}`} alt="QR Code" className="w-48 h-48" />
               </div>
             </div>
             <p className="text-xs text-gray-400 mt-4 break-all">{qrRequestId}</p>
