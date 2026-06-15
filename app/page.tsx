@@ -1,15 +1,9 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-  TrendingUp as TrendingIcon,
-  TrendingUp as TrendingIcon,
 import { ethers } from 'ethers';
-  TrendingUp as TrendingIcon,
-  TrendingUp as TrendingIcon,
 import confetti from 'canvas-confetti';
 import QRCode from 'qrcode.react';
 import { 
-  TrendingUp as TrendingIcon,
-  TrendingUp as TrendingIcon,
   Sparkles, Wallet, Send, Copy, Share2, ExternalLink, 
   Moon, Sun, HelpCircle, Download, Search, ChevronLeft, 
   ChevronRight, CheckCircle, Clock, Award, Zap, Star, 
@@ -154,7 +148,7 @@ export default function Home() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'paid'>('all');
   const [darkMode, setDarkMode] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [activeTab, setActiveTab] = useState<'requests' | 'payments' | 'badges' | 'leaderboard' | 'analytics' | 'analytics'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'payments' | 'badges' | 'leaderboard' | 'analytics'>('requests');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingPayId, setPendingPayId] = useState('');
   const [userPoints, setUserPoints] = useState(0);
@@ -171,9 +165,20 @@ export default function Home() {
   const [paymentsPage, setPaymentsPage] = useState(1);
   const [showMintModal, setShowMintModal] = useState(false);
   const [pendingBadge, setPendingBadge] = useState<{id: number, name: string} | null>(null);
-const [showQRModal, setShowQRModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
   const [qrRequestId, setQrRequestId] = useState('');
   const itemsPerPage = 5;
+
+  // Analytics variables
+  const totalRequests = myRequests.length;
+  const totalPayments = myPayments.length;
+  const totalVolume = myPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+  const pendingRequests = myRequests.filter(r => !r.paid).length;
+  const paidRequests = myRequests.filter(r => r.paid).length;
+  const userBadgeCount = userBadges.filter(b => b).length;
+  const badgeProgress = (userBadgeCount / 6) * 100;
+  const nextBadgeNames = ["First Request", "First Payment", "10 Requests", "100 USDC Paid", "7 Day Streak", "Legend"];
+  const nextBadgeName = nextBadgeNames[userBadges.findIndex(b => !b)] || "All badges collected!";
 
   useEffect(() => {
     const saved = localStorage.getItem('arcpay-darkmode');
@@ -311,7 +316,7 @@ const [showQRModal, setShowQRModal] = useState(false);
       const ids = await contract.getRequests(wallet);
       const requestsData = await Promise.all(ids.map(async (id: string) => {
         const req = await contract.requests(id);
-        return { id, description: req.description, amount: req.amount, paid: req.paid };
+        return { id, description: req.description, amount: ethers.formatUnits(req.amount, 18), paid: req.paid };
       }));
       setMyRequests(requestsData.reverse());
     } catch (err) { console.error(err); }
@@ -324,7 +329,8 @@ const [showQRModal, setShowQRModal] = useState(false);
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
       const gasPrice = await provider.getFeeData();
-      const estimate = await contract.payRequest.estimateGas(payId, { value: 1 });
+      const reqData = await contract.requests(payId);
+      const estimate = await contract.payRequest.estimateGas(payId, { value: reqData.amount });
       setGasEstimate(`${(Number(estimate) * Number(gasPrice.gasPrice || 0) / 1e18).toFixed(6)} USDC`);
     } catch (err) { setGasEstimate('N/A'); }
   }
@@ -482,7 +488,6 @@ const [showQRModal, setShowQRModal] = useState(false);
   const filteredRequests = myRequests.filter(req => (req.description.toLowerCase().includes(searchTerm.toLowerCase()) || req.id.toLowerCase().includes(searchTerm.toLowerCase())) && (filterStatus === 'all' || (filterStatus === 'pending' && !req.paid) || (filterStatus === 'paid' && req.paid)));
   const paginatedRequests = filteredRequests.slice((requestsPage - 1) * itemsPerPage, requestsPage * itemsPerPage);
   const paginatedPayments = myPayments.slice((paymentsPage - 1) * itemsPerPage, paymentsPage * itemsPerPage);
-  const userBadgeCount = userBadges.filter(b => b).length;
   const todayBadgeId = new Date().getDay() % 7;
 
   const bgClass = darkMode ? 'bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900' : 'bg-gradient-to-br from-gray-100 via-white to-gray-100';
@@ -505,6 +510,19 @@ const [showQRModal, setShowQRModal] = useState(false);
       <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Gas fee: ${gasEstimate || '~0.001 USDC'}.`} loading={loading === 'Processing payment...'} />
       <MintBadgeModal isOpen={showMintModal} onClose={() => { setShowMintModal(false); setPendingBadge(null); }} onMint={handleMintBadge} badgeName={pendingBadge?.name || ''} loading={loading === 'Minting badge...'} />
 
+      {showQRModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn" onClick={() => setShowQRModal(false)}>
+          <div className={`${cardBg} rounded-2xl p-6 max-w-sm w-full mx-4 border ${borderClass} text-center`} onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-4">Scan to Pay</h3>
+            <div className="bg-white p-4 rounded-xl inline-block mx-auto">
+              <QRCode value={`${window.location.origin}/#reqId=${qrRequestId}`} size={200} />
+            </div>
+            <p className="text-xs text-gray-400 mt-4 break-all">{qrRequestId}</p>
+            <button onClick={() => setShowQRModal(false)} className="mt-4 px-6 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500">Close</button>
+          </div>
+        </div>
+      )}
+
       {toast && (
         <div 
           className={`fixed bottom-5 left-5 z-50 px-6 py-4 rounded-xl shadow-2xl backdrop-blur-md text-base font-medium ${toast.type === 'success' ? 'bg-green-600/90' : 'bg-red-600/90'} text-white animate-fadeIn max-w-sm cursor-pointer hover:scale-105 transition-all`}
@@ -526,8 +544,7 @@ const [showQRModal, setShowQRModal] = useState(false);
             <button onClick={() => setActiveTab('payments')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'payments' ? 'text-cyan-400' : 'text-gray-400'}`}><Send className="w-3.5 h-3.5" /> Payments</button>
             <button onClick={() => setActiveTab('badges')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'badges' ? 'text-cyan-400' : 'text-gray-400'}`}><Award className="w-3.5 h-3.5" /> Badges</button>
             <button onClick={() => setActiveTab('leaderboard')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'leaderboard' ? 'text-cyan-400' : 'text-gray-400'}`}><Trophy className="w-3.5 h-3.5" /> Leaderboard</button>
-<button onClick={() => setActiveTab('analytics')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-3.5 h-3.5" /> Analytics</button>
-<button onClick={() => setActiveTab('analytics')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-3.5 h-3.5" /> Analytics</button>
+            <button onClick={() => setActiveTab('analytics')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-3.5 h-3.5" /> Analytics</button>
             <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-1"><Droplet className="w-3.5 h-3.5" /> Faucet</a>
           </div>
           <div className="flex items-center gap-3">
@@ -556,8 +573,7 @@ const [showQRModal, setShowQRModal] = useState(false);
             <button onClick={() => { setActiveTab('payments'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'payments' ? 'text-cyan-400' : 'text-gray-400'}`}><Send className="w-4 h-4" /> Payments</button>
             <button onClick={() => { setActiveTab('badges'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'badges' ? 'text-cyan-400' : 'text-gray-400'}`}><Award className="w-4 h-4" /> Badges</button>
             <button onClick={() => { setActiveTab('leaderboard'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'leaderboard' ? 'text-cyan-400' : 'text-gray-400'}`}><Trophy className="w-4 h-4" /> Leaderboard</button>
-<button onClick={() => { setActiveTab('analytics'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-4 h-4" /> Analytics</button>
-<button onClick={() => { setActiveTab('analytics'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-4 h-4" /> Analytics</button>
+            <button onClick={() => { setActiveTab('analytics'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-4 h-4" /> Analytics</button>
             <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-2"><Droplet className="w-4 h-4" /> Faucet</a>
             <button onClick={disconnectWallet} className="mt-2 w-full px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition flex items-center justify-center gap-2 text-sm font-medium">🔌 Disconnect Wallet</button>
           </div>
@@ -625,15 +641,14 @@ const [showQRModal, setShowQRModal] = useState(false);
               <button onClick={() => setActiveTab('payments')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'payments' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Send className="w-4 h-4" /> My Payments{myPayments.length > 0 && <button onClick={() => exportToCSV(myPayments, 'arcpay-payments')} className="ml-2 text-xs bg-cyan-600/50 hover:bg-cyan-600 px-2 py-0.5 rounded-full transition" title="Export CSV"><Download className="w-3 h-3 inline" /> CSV</button>}</button>
               <button onClick={() => setActiveTab('badges')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'badges' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Award className="w-4 h-4" /> Badges{userBadgeCount > 0 && <span className="text-xs bg-cyan-500/30 px-1.5 py-0.5 rounded-full">{userBadgeCount}</span>}</button>
               <button onClick={() => setActiveTab('leaderboard')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'leaderboard' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Trophy className="w-4 h-4" /> Leaderboard</button>
-<button onClick={() => setActiveTab('analytics')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-3.5 h-3.5" /> Analytics</button>
-<button onClick={() => setActiveTab('analytics')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-3.5 h-3.5" /> Analytics</button>
+              <button onClick={() => setActiveTab('analytics')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'analytics' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><BarChart3 className="w-4 h-4" /> Analytics</button>
             </div>
 
             {activeTab === 'requests' && (
               <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
                 <div className="flex flex-wrap justify-between items-center mb-5 gap-3"><h2 className="text-xl font-semibold flex items-center gap-2"><Layers className="w-5 h-5 text-cyan-400" /> My Requests</h2><div className="flex gap-2"><div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" /><input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputBg} border ${borderClass} rounded-xl pl-8 pr-3 py-1.5 text-sm w-32 sm:w-40 focus:outline-none focus:border-cyan-500`} /></div><select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500`}><option value="all">All</option><option value="pending">Pending</option><option value="paid">Paid</option></select></div></div>
                 {isFetching ? <div className="space-y-3"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div> : paginatedRequests.length === 0 ? <div className="text-center py-12"><div className="text-6xl mb-3">📭</div><p className="text-gray-400">No requests yet</p><button onClick={() => setShowTutorial(true)} className="mt-3 text-xs text-cyan-400 hover:text-cyan-300">❓ Need help?</button></div> : <div className="space-y-3">{paginatedRequests.map((req, idx) => (<div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all hover:scale-[1.01]"><div className="flex flex-wrap justify-between items-start gap-2"><div className="flex-1"><p className="font-medium truncate">{req.description}</p><div className="flex flex-wrap items-center gap-2 mt-1"><p className="text-xs text-gray-400 font-mono">{truncateHash(req.id)}</p><button onClick={() => copyToClipboard(req.id)} className="bg-gray-700 hover:bg-cyan-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Copy className="w-3 h-3" /> Copy</button><button onClick={() => shareRequestLink(req.id)} className="bg-gray-700 hover:bg-green-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Share2 className="w-3 h-3" /> Share</button>
-                          <button onClick={() => { setQrRequestId(req.id); setShowQRModal(true); }} className="bg-gray-700 hover:bg-purple-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition">📱 QR</button>{txHashes[req.id] && <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Tx</a>}</div><p className="text-xs text-cyan-300 mt-1">{ethers.formatUnits(req.amount, 18)} USDC</p></div><span className={`text-xs px-3 py-1 rounded-full border ${req.paid ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>{req.paid ? <><CheckCircle className="w-3 h-3 inline mr-1" /> Paid</> : <><Clock className="w-3 h-3 inline mr-1" /> Pending</>}</span></div></div>))}<Pagination currentPage={requestsPage} totalPages={Math.ceil(filteredRequests.length / itemsPerPage)} onPageChange={setRequestsPage} /></div>}
+                          <button onClick={() => { setQrRequestId(req.id); setShowQRModal(true); }} className="bg-gray-700 hover:bg-purple-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition">📱 QR</button>{txHashes[req.id] && <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Tx</a>}</div><p className="text-xs text-cyan-300 mt-1">{req.amount} USDC</p></div><span className={`text-xs px-3 py-1 rounded-full border ${req.paid ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>{req.paid ? <><CheckCircle className="w-3 h-3 inline mr-1" /> Paid</> : <><Clock className="w-3 h-3 inline mr-1" /> Pending</>}</span></div></div>))}<Pagination currentPage={requestsPage} totalPages={Math.ceil(filteredRequests.length / itemsPerPage)} onPageChange={setRequestsPage} /></div>}
               </div>
             )}
 
@@ -701,6 +716,65 @@ const [showQRModal, setShowQRModal] = useState(false);
                   ))}
                 </div>
                 <p className="text-center text-xs text-gray-500 mt-4">✨ Keep building to climb the ranks! ✨</p>
+              </div>
+            )}
+
+            {activeTab === 'analytics' && (
+              <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
+                <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><BarChart3 className="w-5 h-5 text-cyan-400" /> Analytics Dashboard</h2>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-white/5 rounded-xl p-4 text-center">
+                    <p className="text-2xl font-bold">{totalRequests}</p>
+                    <p className="text-xs text-gray-400">Total Requests</p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-4 text-center">
+                    <p className="text-2xl font-bold">{totalPayments}</p>
+                    <p className="text-xs text-gray-400">Total Payments</p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-4 text-center">
+                    <p className="text-2xl font-bold">{totalVolume.toFixed(2)}</p>
+                    <p className="text-xs text-gray-400">Volume (USDC)</p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-4 text-center">
+                    <p className="text-2xl font-bold">{userPoints}</p>
+                    <p className="text-xs text-gray-400">Total Points</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div className="bg-white/5 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> Request Status</h3>
+                    <div className="flex justify-between text-sm mb-2"><span>Pending</span><span>{pendingRequests}</span></div>
+                    <div className="w-full bg-white/10 rounded-full h-2 mb-3">
+                      <div className="bg-yellow-500 h-2 rounded-full" style={{ width: `${totalRequests ? (pendingRequests / totalRequests) * 100 : 0}%` }}></div>
+                    </div>
+                    <div className="flex justify-between text-sm mb-2"><span>Paid</span><span>{paidRequests}</span></div>
+                    <div className="w-full bg-white/10 rounded-full h-2">
+                      <div className="bg-green-500 h-2 rounded-full" style={{ width: `${totalRequests ? (paidRequests / totalRequests) * 100 : 0}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/5 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2"><Award className="w-4 h-4 text-purple-400" /> Badge Progress</h3>
+                    <div className="text-center mb-2">
+                      <p className="text-3xl font-bold">{userBadgeCount}/6</p>
+                      <p className="text-xs text-gray-400">Badges Collected</p>
+                    </div>
+                    <div className="w-full bg-white/10 rounded-full h-2">
+                      <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full" style={{ width: `${badgeProgress}%` }}></div>
+                    </div>
+                    <p className="text-xs text-center mt-2 text-gray-400">{Math.round(badgeProgress)}% Complete</p>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-xl p-4">
+                  <div className="flex justify-between items-center flex-wrap gap-3">
+                    <div><p className="text-xs text-gray-400">Current Streak</p><p className="text-xl font-bold flex items-center gap-1"><Flame className="w-4 h-4 text-orange-500" /> {dailyStreak} days</p></div>
+                    <div><p className="text-xs text-gray-400">Tier</p><p className="text-xl font-bold">{tierIcon} {tierName}</p></div>
+                    <div><p className="text-xs text-gray-400">Next Badge</p><p className="text-sm font-medium">{nextBadgeName}</p></div>
+                  </div>
+                </div>
               </div>
             )}
           </>
