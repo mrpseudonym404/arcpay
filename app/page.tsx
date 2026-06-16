@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import confetti from 'canvas-confetti';
-import QRCode from 'qrcode.react';
+import QRCode from 'react-qr-code';
 import { 
   Sparkles, Wallet, Send, Copy, Share2, ExternalLink, 
   Moon, Sun, HelpCircle, Download, Search, ChevronLeft, 
