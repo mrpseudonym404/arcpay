@@ -169,7 +169,6 @@ export default function Home() {
   const [qrRequestId, setQrRequestId] = useState('');
   const itemsPerPage = 5;
 
-  // Analytics variables
   const totalRequests = myRequests.length;
   const totalPayments = myPayments.length;
   const totalVolume = myPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
@@ -510,6 +509,7 @@ export default function Home() {
       <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Gas fee: ${gasEstimate || '~0.001 USDC'}.`} loading={loading === 'Processing payment...'} />
       <MintBadgeModal isOpen={showMintModal} onClose={() => { setShowMintModal(false); setPendingBadge(null); }} onMint={handleMintBadge} badgeName={pendingBadge?.name || ''} loading={loading === 'Minting badge...'} />
 
+      {/* QR CODE MODAL - FIXED */}
       {showQRModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn" onClick={() => setShowQRModal(false)}>
           <div className={`${cardBg} rounded-2xl p-6 max-w-sm w-full mx-4 border ${borderClass} text-center`} onClick={e => e.stopPropagation()}>
@@ -518,7 +518,7 @@ export default function Home() {
               <QRCode value={`${window.location.origin}/#reqId=${qrRequestId}`} size={200} />
             </div>
             <p className="text-xs text-gray-400 mt-4 break-all">{qrRequestId}</p>
-            <button onClick={() => setShowQRModal(false)} className="mt-4 px-6 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500">Close</button>
+            <button onClick={() => setShowQRModal(false)} className="mt-4 px-6 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:scale-105 transition">Close</button>
           </div>
         </div>
       )}
@@ -538,7 +538,11 @@ export default function Home() {
 
       <nav className={`relative z-20 border-b ${borderClass} ${navBg} backdrop-blur-xl sticky top-0 transition-all duration-300`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-3">
-          <div className="flex items-center gap-2"><svg className="w-10 h-10" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="url(#logoGrad)"/><text x="24" y="33" textAnchor="middle" fill="white" fontSize="26" fontWeight="900" fontFamily="Inter, sans-serif">A</text><path d="M34 22L38 26L34 30" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/><path d="M38 26H28" stroke="white" strokeWidth="3" strokeLinecap="round"/><defs><linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#ec4899"/><stop offset="100%" stopColor="#06b6d4"/></linearGradient></defs></svg><span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">ArcPay</span><span className="text-[10px] font-mono text-gray-400 bg-white/10 px-2 py-0.5 rounded-full flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>Arc Testnet</span></div>
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-gradient-to-r from-pink-500 to-cyan-500 rounded-xl shadow-lg flex items-center justify-center font-bold text-white text-lg">A</div>
+            <span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">ArcPay</span>
+            <span className="text-[10px] font-mono text-gray-400 bg-white/10 px-2 py-0.5 rounded-full flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>Arc Testnet</span>
+          </div>
           <div className="hidden md:flex items-center gap-4">
             <button onClick={() => setActiveTab('requests')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'requests' ? 'text-cyan-400' : 'text-gray-400'}`}><Layers className="w-3.5 h-3.5" /> Requests</button>
             <button onClick={() => setActiveTab('payments')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'payments' ? 'text-cyan-400' : 'text-gray-400'}`}><Send className="w-3.5 h-3.5" /> Payments</button>
@@ -548,17 +552,19 @@ export default function Home() {
             <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-1"><Droplet className="w-3.5 h-3.5" /> Faucet</a>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setDarkMode(!darkMode)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110">{darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}</button>
-            <button onClick={() => setShowTutorial(true)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110"><HelpCircle className="w-4 h-4" /></button>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"><Menu className="w-4 h-4" /></button>
+            <button onClick={() => setDarkMode(!darkMode)} className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110">{darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}</button>
+            <button onClick={() => setShowTutorial(true)} className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110"><HelpCircle className="w-4 h-4" /></button>
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"><Menu className="w-4 h-4" /></button>
             {!wallet ? (
-              <button onClick={connectWallet} disabled={isConnecting} className="px-6 py-2.5 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50 flex items-center gap-2 active:scale-95">{isConnecting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Wallet className="w-4 h-4" /> Connect</>}</button>
+              <button onClick={connectWallet} disabled={isConnecting} className="px-6 py-3 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50 flex items-center gap-2 active:scale-95">
+                {isConnecting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Wallet className="w-4 h-4" /> Connect</>}
+              </button>
             ) : (
-              <div className="flex items-center gap-2 md:gap-3 bg-white/5 rounded-full border border-white/10 px-2 py-1 md:px-3 md:py-1.5">
+              <div className="flex items-center gap-2 md:gap-3 bg-white/5 rounded-full border border-white/10 px-3 py-1.5">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="font-mono text-xs md:text-sm">{wallet.slice(0,6)}...{wallet.slice(-4)}</span>
-                  <span className="text-xs bg-gradient-to-r from-pink-500/30 to-cyan-500/30 px-1.5 py-0.5 rounded-full">{parseFloat(balance).toFixed(2)} USDC</span>
+                  <span className="font-mono text-sm hidden sm:inline">{wallet.slice(0,6)}...{wallet.slice(-4)}</span>
+                  <span className="text-xs bg-gradient-to-r from-pink-500/30 to-cyan-500/30 px-2 py-0.5 rounded-full">{parseFloat(balance).toFixed(2)} USDC</span>
                   <span className="hidden md:inline-flex text-xs bg-yellow-500/30 px-2 py-0.5 rounded-full items-center gap-1"><Award className="w-3 h-3" /> {totalBadges}</span>
                   <span className="hidden md:inline-flex text-xs bg-purple-500/30 px-2 py-0.5 rounded-full items-center gap-1"><Star className="w-3 h-3" /> {userPoints}</span>
                 </div>
@@ -575,7 +581,7 @@ export default function Home() {
             <button onClick={() => { setActiveTab('leaderboard'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'leaderboard' ? 'text-cyan-400' : 'text-gray-400'}`}><Trophy className="w-4 h-4" /> Leaderboard</button>
             <button onClick={() => { setActiveTab('analytics'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-4 h-4" /> Analytics</button>
             <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-2"><Droplet className="w-4 h-4" /> Faucet</a>
-            <button onClick={disconnectWallet} className="mt-2 w-full px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition flex items-center justify-center gap-2 text-sm font-medium">🔌 Disconnect Wallet</button>
+            <button onClick={disconnectWallet} className="mt-2 w-full px-4 py-3 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition flex items-center justify-center gap-2 text-sm font-medium">🔌 Disconnect Wallet</button>
           </div>
         )}
       </nav>
@@ -648,7 +654,17 @@ export default function Home() {
               <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
                 <div className="flex flex-wrap justify-between items-center mb-5 gap-3"><h2 className="text-xl font-semibold flex items-center gap-2"><Layers className="w-5 h-5 text-cyan-400" /> My Requests</h2><div className="flex gap-2"><div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" /><input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputBg} border ${borderClass} rounded-xl pl-8 pr-3 py-1.5 text-sm w-32 sm:w-40 focus:outline-none focus:border-cyan-500`} /></div><select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500`}><option value="all">All</option><option value="pending">Pending</option><option value="paid">Paid</option></select></div></div>
                 {isFetching ? <div className="space-y-3"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div> : paginatedRequests.length === 0 ? <div className="text-center py-12"><div className="text-6xl mb-3">📭</div><p className="text-gray-400">No requests yet</p><button onClick={() => setShowTutorial(true)} className="mt-3 text-xs text-cyan-400 hover:text-cyan-300">❓ Need help?</button></div> : <div className="space-y-3">{paginatedRequests.map((req, idx) => (<div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all hover:scale-[1.01]"><div className="flex flex-wrap justify-between items-start gap-2"><div className="flex-1"><p className="font-medium truncate">{req.description}</p><div className="flex flex-wrap items-center gap-2 mt-1"><p className="text-xs text-gray-400 font-mono">{truncateHash(req.id)}</p><button onClick={() => copyToClipboard(req.id)} className="bg-gray-700 hover:bg-cyan-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Copy className="w-3 h-3" /> Copy</button><button onClick={() => shareRequestLink(req.id)} className="bg-gray-700 hover:bg-green-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Share2 className="w-3 h-3" /> Share</button>
-                          <button onClick={() => { setQrRequestId(req.id); setShowQRModal(true); }} className="bg-gray-700 hover:bg-purple-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition">📱 QR</button>{txHashes[req.id] && <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Tx</a>}</div><p className="text-xs text-cyan-300 mt-1">{req.amount} USDC</p></div><span className={`text-xs px-3 py-1 rounded-full border ${req.paid ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>{req.paid ? <><CheckCircle className="w-3 h-3 inline mr-1" /> Paid</> : <><Clock className="w-3 h-3 inline mr-1" /> Pending</>}</span></div></div>))}<Pagination currentPage={requestsPage} totalPages={Math.ceil(filteredRequests.length / itemsPerPage)} onPageChange={setRequestsPage} /></div>}
+                          <button 
+                            onClick={() => { 
+                              console.log("QR clicked for:", req.id); 
+                              setQrRequestId(req.id); 
+                              setShowQRModal(true); 
+                            }} 
+                            className="bg-gray-700 hover:bg-purple-600 px-3 py-1.5 rounded text-xs flex items-center gap-1 transition font-medium"
+                          >
+                            📱 QR
+                          </button>
+                          {txHashes[req.id] && <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Tx</a>}</div><p className="text-xs text-cyan-300 mt-1">{req.amount} USDC</p></div><span className={`text-xs px-3 py-1 rounded-full border ${req.paid ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>{req.paid ? <><CheckCircle className="w-3 h-3 inline mr-1" /> Paid</> : <><Clock className="w-3 h-3 inline mr-1" /> Pending</>}</span></div></div>))}<Pagination currentPage={requestsPage} totalPages={Math.ceil(filteredRequests.length / itemsPerPage)} onPageChange={setRequestsPage} /></div>}
               </div>
             )}
 
