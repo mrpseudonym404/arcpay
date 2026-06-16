@@ -509,7 +509,7 @@ export default function Home() {
       <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Gas fee: ${gasEstimate || '~0.001 USDC'}.`} loading={loading === 'Processing payment...'} />
       <MintBadgeModal isOpen={showMintModal} onClose={() => { setShowMintModal(false); setPendingBadge(null); }} onMint={handleMintBadge} badgeName={pendingBadge?.name || ''} loading={loading === 'Minting badge...'} />
 
-      {/* QR CODE MODAL - FIXED */}
+      {/* QR MODAL */}
       {showQRModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn" onClick={() => setShowQRModal(false)}>
           <div className={`${cardBg} rounded-2xl p-6 max-w-sm w-full mx-4 border ${borderClass} text-center`} onClick={e => e.stopPropagation()}>
@@ -539,7 +539,19 @@ export default function Home() {
       <nav className={`relative z-20 border-b ${borderClass} ${navBg} backdrop-blur-xl sticky top-0 transition-all duration-300`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-gradient-to-r from-pink-500 to-cyan-500 rounded-xl shadow-lg flex items-center justify-center font-bold text-white text-lg">A</div>
+            {/* LOGO KEREN - A dengan panah */}
+            <svg className="w-10 h-10" viewBox="0 0 48 48" fill="none">
+              <rect width="48" height="48" rx="12" fill="url(#logoGrad)"/>
+              <text x="24" y="33" textAnchor="middle" fill="white" fontSize="26" fontWeight="900" fontFamily="Inter, sans-serif">A</text>
+              <path d="M34 22L38 26L34 30" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M38 26H28" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+              <defs>
+                <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#ec4899"/>
+                  <stop offset="100%" stopColor="#06b6d4"/>
+                </linearGradient>
+              </defs>
+            </svg>
             <span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">ArcPay</span>
             <span className="text-[10px] font-mono text-gray-400 bg-white/10 px-2 py-0.5 rounded-full flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>Arc Testnet</span>
           </div>
