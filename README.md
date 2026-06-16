@@ -52,11 +52,22 @@ ArcPay is a **decentralized payment gateway** built on **Arc Testnet** — a USD
 | | Search & Filter | Find by ID or description |
 | | Pagination | 5 items per page |
 | | Magic Link Sharing | Copy ID or share one-click link |
+
+### QR Code Payment
+Generate QR code for any request — scan and pay instantly with mobile wallet.
 | **Payment History** | My Payments | On-chain history for payers (newest first) |
 | | Export CSV | Download payment history as CSV |
 | **Gamification** | Daily Badge | Mint 1 badge every day, streak rewards at 7 days |
 | | Achievement Badges | First Request, First Payment, 10 Requests, 100 USDC Paid, 7 Day Streak, Legend |
 | | Points System | Earn 50 points per badge |
+
+### Analytics Dashboard
+View your stats:
+- Total requests, payments, volume
+- Badge progress (X/6)
+- Pending vs Paid ratio
+- Current streak & tier
+- Next badge suggestion
 | | Tier Levels | 10 tiers from Rookie Builder to Transcendent |
 | | Leaderboard | Top users by points (anonymous addresses) |
 | **Developer** | Real-time Balance | Auto-refresh on new blocks |
