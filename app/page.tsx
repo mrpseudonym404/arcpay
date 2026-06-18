@@ -458,10 +458,10 @@ export default function Home() {
       const transferData = usdcInterface.encodeFunctionData('transfer', [req.creator, amountInWei]);
       
       // 3. Encode memoId (pakai requestId)
-      const memoId = ethers.hexlify(ethers.toUtf8Bytes(id));
+      const memoId = id; // requestId sudah bytes32, tidak perlu toUtf8Bytes
       
       // 4. Encode memoData (deskripsi request)
-      const memoData = ethers.hexlify(ethers.toUtf8Bytes(`Payment for: ${req.description} (${id.slice(0,8)})`));
+      const memoData = ethers.hexlify(ethers.toUtf8Bytes(`Payment: ${req.description}`));
       
       // 5. Panggil Memo.memo (bukan USDC.transfer langsung)
       const memoContract = new ethers.Contract(MEMO_ADDRESS, MEMO_ABI, signer);
