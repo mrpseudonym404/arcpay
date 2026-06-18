@@ -437,8 +437,8 @@ export default function Home() {
   }
 
   const handlePayClick = () => { if (!payId) return showToast('Enter Request ID', 'error'); setPendingPayId(payId); setShowConfirmModal(true); };
-  
-  // ============ EXECUTE PAY + BATCH MEMO ============
+
+  // ============ EXECUTE PAY (2 TRANSAKSI: payRequest + memo) ============
   const executePay = useCallback(async () => {
     const id = pendingPayId;
     setShowConfirmModal(false);
@@ -446,32 +446,42 @@ export default function Home() {
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
-      
-      // 1. Dapatkan data request
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
       const req = await contract.requests(id);
       const amountInWei = req.amount;
-      
-      // 2. Encode payRequest call
-        CONTRACT_ADDRESS,
-        payData,
-        memoId,
-        memoData,
-        { value: amountInWei, gasLimit: 600000 }
-      );
-      
-      const receipt = await tx.wait();
-      const txHash = receipt.hash;
+
+      // ============ TRANSAKSI 1: PAY REQUEST ============
+      const tx1 = await contract.payRequest(id, { value: amountInWei, gasLimit: 500000 });
+      const receipt1 = await tx1.wait();
+      const txHash = receipt1.hash;
       setTxHashes(prev => ({ ...prev, [id]: txHash }));
       setPayId('');
+
+      // ============ TRANSAKSI 2: KIRIM MEMO ============
+      const usdcInterface = new ethers.Interface([
+        'function transfer(address to, uint256 amount) returns (bool)'
+      ]);
+      const transferData = usdcInterface.encodeFunctionData('transfer', [req.creator, amountInWei]);
       
-      // 5. Update state
+      const memoId = id; // requestId sudah bytes32
+      const memoData = ethers.hexlify(ethers.toUtf8Bytes(req.description.slice(0, 32)));
+      
+      const memoContract = new ethers.Contract(MEMO_ADDRESS, MEMO_ABI, signer);
+      await memoContract.memo(
+        USDC_ADDRESS,
+        transferData,
+        memoId,
+        memoData,
+        { gasLimit: 300000 }
+      );
+
+      // ============ UPDATE STATE ============
       await fetchMyRequests();
       await fetchMyPayments();
       await fetchBalance();
       await fetchUserStats();
-      
-      // 6. Cek badge (hanya pertama kali)
+
+      // ============ BADGE FIRST PAYMENT ============
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
           const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
@@ -483,11 +493,11 @@ export default function Home() {
           }
         } catch (badgeError) { console.error("Badge award failed:", badgeError); }
       }
-      
+
       confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ['#10b981', '#06b6d4', '#f43f5e'] });
       const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
       showToast(`🎉 Payment sent with memo! ${randomVibe}`, 'success', txHash);
-      
+
     } catch(e: any) {
       showToast(e.message?.slice(0,60), 'error');
     }
