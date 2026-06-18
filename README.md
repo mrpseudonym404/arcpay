@@ -53,33 +53,50 @@ Why ArcPay?
 
 ### Developer & UX
 - Real-time Balance - Auto-refreshes on new blocks
-- Gas Estimate - Shows estimated gas before payment
 - Confirm Modal - Confirmation before paying to avoid mistakes
 - Dark/Light Mode - Toggle theme, remembers your preference
 - Mobile Responsive - Fully functional on desktop and mobile
-- Toast Notifications - Clickable notifications with ArcScan link
 - Confetti Animation - Celebration on successful payment
 - Transaction Memos - On-chain structured context for payment reconciliation
 
 ## How It Works
 
-For Creator (Wallet A)
-1. Connect wallet (Rabby/MetaMask) to Arc Testnet
-2. Create Request - fill description and amount in USDC
-3. Share - copy Request ID, click the Magic Link, or generate a QR code
+### For Creator (Wallet A)
+
+1. **Connect wallet** (Rabby/MetaMask) to Arc Testnet
+2. **Create Request** - fill description and amount in USDC
+3. **Share** - copy Request ID, click the Magic Link, or generate a QR code
 4. Send the ID/link to your payer via any chat app or have them scan the QR code
 
-For Payer (Wallet B)
-1. Connect wallet to Arc Testnet
-2. Open the Magic Link, paste the Request ID, or scan the QR code
-3. Click Pay Request - confirm transaction in wallet
-4. Done - Status changes to "Paid", balance updates automatically
+### For Payer (Wallet B)
 
-Badge System
+1. **Connect wallet** to Arc Testnet
+2. **Open the Magic Link**, paste the Request ID, or scan the QR code
+3. **Click Pay Request** - confirm transaction in wallet
+4. **Done!** - Status changes to "Paid", balance updates automatically
+5. **Payment tracked** - Each payment includes a Transaction Memo with the Request ID for easy reconciliation and CSV export
+
+### Badge System
+
 1. Complete tasks (create request, pay request, etc.)
-2. A pop-up "Badge Earned" appears
+2. A pop-up "Badge Earned!" appears
 3. Click "Mint Badge" (only once per badge)
 4. The badge appears in your collection with +50 points
+
+### QR Code Payment
+
+1. Open any request in "My Requests"
+2. Click the "QR" button next to the request
+3. Scan the QR code with your mobile wallet
+4. Pay instantly - no need to copy/paste long IDs
+
+### Transaction Memos
+
+Every payment includes a structured Transaction Memo containing:
+- **Request ID** as memoId
+- **Description** as memoData
+- Enables automatic reconciliation
+- Exported in CSV for accounting purposes
 
 ## Smart Contracts
 
