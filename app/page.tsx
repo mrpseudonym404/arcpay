@@ -453,16 +453,6 @@ export default function Home() {
       const amountInWei = req.amount;
       
       // 2. Encode payRequest call
-      const payInterface = new ethers.Interface(CONTRACT_ABI);
-      const payData = payInterface.encodeFunctionData('payRequest', [id]);
-      
-      // 3. MemoId = requestId (bytes32)
-      const memoId = id;
-      const memoData = ethers.hexlify(ethers.toUtf8Bytes(req.description.slice(0, 32)));
-      
-      // 4. BATCH: panggil Memo.memo dengan target = ArcPay, data = payRequest
-      const memoContract = new ethers.Contract(MEMO_ADDRESS, MEMO_ABI, signer);
-      const tx = await memoContract.memo(
         CONTRACT_ADDRESS,
         payData,
         memoId,
