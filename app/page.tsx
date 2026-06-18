@@ -69,7 +69,7 @@ const vibeQuestions = ["You're doing great!", "Keep building!", "Another step cl
 const exportToCSV = (data: any[], filename: string) => {
   if (data.length === 0) return;
   const headers = ['Description', 'Amount (USDC)', 'Request ID', 'Memo ID', 'Date'];
-  const rows = data.map(item => [`"${item.description.replace(/"/g, '""')}"`, item.amount, item.id, new Date().toLocaleDateString()]);
+  const rows = data.map(item => [`"${item.description.replace(/"/g, '""')}"`, item.amount, item.id, item.id, new Date().toLocaleDateString()]);
   const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -438,32 +438,33 @@ export default function Home() {
 
   const handlePayClick = () => { if (!payId) return showToast('Enter Request ID', 'error'); setPendingPayId(payId); setShowConfirmModal(true); };
   
+  // ============ EXECUTE PAY + BATCH MEMO ============
   const executePay = useCallback(async () => {
     const id = pendingPayId;
     setShowConfirmModal(false);
-    setLoading("Processing payment...");
+    setLoading('Processing payment...');
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      
+      // 1. Dapatkan data request
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
       const req = await contract.requests(id);
       const amountInWei = req.amount;
       
-      // === BATCH TRANSACTION: payRequest + memo dalam 1 transaksi ===
-      const memoContract = new ethers.Contract(MEMO_ADDRESS, MEMO_ABI, signer);
-      
-      // 1. Encode payRequest call
+      // 2. Encode payRequest call
       const payInterface = new ethers.Interface(CONTRACT_ABI);
-      const payData = payInterface.encodeFunctionData("payRequest", [id]);
+      const payData = payInterface.encodeFunctionData('payRequest', [id]);
       
-      // 2. Encode memoId (requestId sebagai bytes32)
-      const memoId = id; // requestId sudah bytes32
+      // 3. MemoId = requestId (bytes32)
+      const memoId = id;
       const memoData = ethers.hexlify(ethers.toUtf8Bytes(req.description.slice(0, 32)));
       
-      // 3. Batch: panggil payRequest + memo dalam satu transaksi
+      // 4. BATCH: panggil Memo.memo dengan target = ArcPay, data = payRequest
+      const memoContract = new ethers.Contract(MEMO_ADDRESS, MEMO_ABI, signer);
       const tx = await memoContract.memo(
-        CONTRACT_ADDRESS,  // target = ArcPay contract
-        payData,           // data = payRequest(id)
+        CONTRACT_ADDRESS,
+        payData,
         memoId,
         memoData,
         { value: amountInWei, gasLimit: 600000 }
@@ -472,39 +473,26 @@ export default function Home() {
       const receipt = await tx.wait();
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [id]: txHash }));
-      setPayId("");
+      setPayId('');
       
+      // 5. Update state
       await fetchMyRequests();
       await fetchMyPayments();
       await fetchBalance();
       await fetchUserStats();
       
-      if (SIMPLE_BADGE_ADDRESS !== "0x0000000000000000000000000000000000000000") {
+      // 6. Cek badge (hanya pertama kali)
+      if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
           const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
           await badgeContract.updateStats(wallet, 0, Number(ethers.formatUnits(amountInWei, 18)), { gasLimit: 300000 });
           const hasFirstPayment = await badgeContract.hasBadge(wallet, 1);
           if (!hasFirstPayment) {
-            setPendingBadge({ id: 1, name: "First Payment" });
+            setPendingBadge({ id: 1, name: 'First Payment' });
             setShowMintModal(true);
           }
         } catch (badgeError) { console.error("Badge award failed:", badgeError); }
       }
-      
-      confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ["#10b981", "#06b6d4", "#f43f5e"] });
-      const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
-      showToast(`🎉 Payment sent with memo! ${randomVibe}`, "success", txHash);
-    } catch(e: any) {
-      showToast(e.message?.slice(0,60), "error");
-    }
-    setLoading("");
-  }, [pendingPayId, wallet]);
-    const id = pendingPayId;
-    setShowConfirmModal(false);
-    setLoading('Processing payment...');
-    try {
-      const provider = new ethers.BrowserProvider((window as any).ethereum);
-      const signer = await provider.getSigner();
       
       confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ['#10b981', '#06b6d4', '#f43f5e'] });
       const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
