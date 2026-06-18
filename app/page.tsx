@@ -68,7 +68,7 @@ const vibeQuestions = ["You're doing great!", "Keep building!", "Another step cl
 
 const exportToCSV = (data: any[], filename: string) => {
   if (data.length === 0) return;
-  const headers = ['Description', 'Amount (USDC)', 'Request ID', 'Date'];
+  const headers = ['Description', 'Amount (USDC)', 'Request ID', 'Memo ID', 'Date'];
   const rows = data.map(item => [`"${item.description.replace(/"/g, '""')}"`, item.amount, item.id, new Date().toLocaleDateString()]);
   const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -458,10 +458,10 @@ export default function Home() {
       const transferData = usdcInterface.encodeFunctionData('transfer', [req.creator, amountInWei]);
       
       // 3. Encode memoId (pakai requestId)
-      const memoId = id; // requestId sudah bytes32, tidak perlu toUtf8Bytes
+      const memoId = id.slice(0, 66).padEnd(66, "0"); // pastikan 32 bytes
       
       // 4. Encode memoData (deskripsi request)
-      const memoData = ethers.hexlify(ethers.toUtf8Bytes(`Payment: ${req.description}`));
+      const memoData = ethers.hexlify(ethers.toUtf8Bytes(req.description.slice(0, 32))); // deskripsi max 32 chars
       
       // 5. Panggil Memo.memo (bukan USDC.transfer langsung)
       const memoContract = new ethers.Contract(MEMO_ADDRESS, MEMO_ABI, signer);
