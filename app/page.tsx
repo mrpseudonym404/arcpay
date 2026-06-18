@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import confetti from 'canvas-confetti';
-import { QRCode } from 'qrcode.react';
+import QRCode from 'react-qr-code';
 import { 
   Sparkles, Wallet, Send, Copy, Share2, ExternalLink, 
   Moon, Sun, HelpCircle, Download, Search, ChevronLeft, 
@@ -41,7 +41,7 @@ const DAILY_BADGE_ABI = [
   'function mintDailyBadge() external',
   'function canMintToday(address) view returns (bool)',
   'function totalBadges(address) view returns (uint256)',
-  'function mintStreak(address) view returns (uint256)',
+  'function mintStreak(address) view returns (uint256)'
 ];
 
 const USDC_ABI = [
@@ -161,6 +161,8 @@ export default function Home() {
   const [totalBadges, setTotalBadges] = useState(0);
   const [dailyStreak, setDailyStreak] = useState(0);
   const [canMintToday, setCanMintToday] = useState(false);
+  const [tierName, setTierName] = useState('Unranked');
+  const [tierIcon, setTierIcon] = useState('⚪');
   const [leaderboard, setLeaderboard] = useState<{address: string, points: number}[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [requestsPage, setRequestsPage] = useState(1);
@@ -222,6 +224,7 @@ export default function Home() {
   }, [wallet]);
 
   useEffect(() => {
+    if (wallet) { fetchBalance(); fetchMyRequests(); fetchMyPayments(); fetchUserStats(); fetchLeaderboard(); fetchDailyBadgeStatus(); }
   }, [wallet]);
 
   useEffect(() => { if (payId && wallet) estimateGas(); else setGasEstimate(null); }, [payId, wallet]);
@@ -239,13 +242,6 @@ export default function Home() {
     } catch (err) { console.error(err); }
   }
 
-    if (!wallet || SIMPLE_BADGE_ADDRESS === '0x0000000000000000000000000000000000000000') return;
-    try {
-      const provider = new ethers.BrowserProvider((window as any).ethereum);
-      const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, provider);
-    } catch (err) { console.error(err); }
-  }
-
   async function mintDailyBadge() {
     if (!canMintToday) { showToast('Already minted today! Come back tomorrow', 'error'); return; }
     setLoading('Minting badge...');
@@ -254,6 +250,7 @@ export default function Home() {
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, signer);
       await (await badgeContract.mintDailyBadge()).wait();
+      await fetchDailyBadgeStatus();
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#fbbf24', '#f59e0b', '#ef4444'] });
       showToast('🎖️ Daily badge minted! Come back tomorrow for another one!', 'success');
     } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
@@ -350,6 +347,7 @@ export default function Home() {
         const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
         try { await badgeContract.updateStreak(address); } catch(e) {}
       }
+      await fetchDailyBadgeStatus();
     } catch (err: any) { showToast(err.message?.slice(0, 100), 'error'); }
     setIsConnecting(false);
   }
@@ -480,7 +478,7 @@ export default function Home() {
       setTxHashes(prev => ({ ...prev, [id]: txHash }));
       setPayId('');
       
-      // 6. Tetap update state seperti sebelumnya
+      // 6. Update state
       await fetchMyRequests(); 
       await fetchMyPayments(); 
       await fetchBalance(); 
@@ -674,7 +672,6 @@ export default function Home() {
               <div>
                 <div className="flex items-center gap-2"><h3 className="font-semibold">Daily Badge</h3>{dailyStreak > 0 && <span className="text-xs bg-orange-500/30 px-2 py-0.5 rounded-full flex items-center gap-1"><Flame className="w-3 h-3" /> {dailyStreak} day streak</span>}</div>
                 <p className="text-xs text-gray-400">Mint 1 badge every day. Streak rewards at 7 days!</p>
-                {tierName !== 'Unranked' && <p className="text-xs text-cyan-400 mt-1">{tierIcon} {tierName} • {totalBadges} badges collected</p>}
               </div>
             </div>
             <button onClick={mintDailyBadge} disabled={!canMintToday || loading !== ''} className={`px-5 py-2 rounded-xl font-medium text-sm transition-all hover:scale-105 flex items-center gap-2 ${canMintToday ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:shadow-lg hover:shadow-yellow-500/30' : 'bg-gray-600/50 cursor-not-allowed'}`}>{canMintToday ? <><Gift className="w-4 h-4" /> Mint Today's Badge</> : <><CheckCircle className="w-4 h-4" /> Already Minted</>}</button>
