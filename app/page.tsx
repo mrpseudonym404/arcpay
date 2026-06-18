@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import confetti from 'canvas-confetti';
-import QRCode from 'react-qr-code';
+import QRCode from 'qrcode.react';
 import { 
   Sparkles, Wallet, Send, Copy, Share2, ExternalLink, 
   Moon, Sun, HelpCircle, Download, Search, ChevronLeft, 
@@ -14,6 +14,7 @@ import {
 
 const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
+const MEMO_ADDRESS = '0x5294E9927c3306DcBaDb03fe70b92e01cCede505';
 const ARC_CHAIN_ID = '0x4CEF52';
 const SIMPLE_BADGE_ADDRESS = '0x4ceB5d7AB432339eCe9Ed41E3B93fF2466834Cd8';
 const DAILY_BADGE_CONTRACT_ADDRESS = '0xA9323D36E49aC6aC49F38aAd431f4C2b69280475';
@@ -47,6 +48,10 @@ const DAILY_BADGE_ABI = [
 const USDC_ABI = [
   'function decimals() view returns (uint8)',
   'function balanceOf(address) view returns (uint256)'
+];
+
+const MEMO_ABI = [
+  'function memo(address target, bytes calldata data, bytes32 memoId, bytes calldata memoData) external'
 ];
 
 const badgeConfig = [
@@ -444,6 +449,7 @@ export default function Home() {
   }
 
   const handlePayClick = () => { if (!payId) return showToast('Enter Request ID', 'error'); setPendingPayId(payId); setShowConfirmModal(true); };
+  
   const executePay = useCallback(async () => {
     const id = pendingPayId;
     setShowConfirmModal(false);
@@ -451,16 +457,46 @@ export default function Home() {
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      
+      // 1. Dapatkan data request
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
       const req = await contract.requests(id);
       const amountInWei = req.amount;
-      const tx = await contract.payRequest(id, { value: amountInWei, gasLimit: 500000 });
+      
+      // 2. Encode USDC transfer
+      const usdcInterface = new ethers.Interface([
+        'function transfer(address to, uint256 amount) returns (bool)'
+      ]);
+      const transferData = usdcInterface.encodeFunctionData('transfer', [req.creator, amountInWei]);
+      
+      // 3. Encode memoId (pakai requestId)
+      const memoId = ethers.hexlify(ethers.toUtf8Bytes(id));
+      
+      // 4. Encode memoData (deskripsi request)
+      const memoData = ethers.hexlify(ethers.toUtf8Bytes(`Payment for: ${req.description} (${id.slice(0,8)})`));
+      
+      // 5. Panggil Memo.memo (bukan USDC.transfer langsung)
+      const memoContract = new ethers.Contract(MEMO_ADDRESS, MEMO_ABI, signer);
+      const tx = await memoContract.memo(
+        USDC_ADDRESS,
+        transferData,
+        memoId,
+        memoData,
+        { gasLimit: 500000 }
+      );
+      
       const receipt = await tx.wait();
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [id]: txHash }));
       setPayId('');
-      await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
       
+      // 6. Tetap update state seperti sebelumnya
+      await fetchMyRequests(); 
+      await fetchMyPayments(); 
+      await fetchBalance(); 
+      await fetchUserStats();
+      
+      // 7. Cek badge
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
           const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
@@ -472,12 +508,17 @@ export default function Home() {
           }
         } catch (badgeError) { console.error("Badge award failed:", badgeError); }
       }
+      
+      // 8. Toast dengan info memo
       confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ['#10b981', '#06b6d4', '#f43f5e'] });
       const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
-      showToast(`🎉 Payment sent. ${randomVibe}`, 'success', txHash);
-    } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
+      showToast(`🎉 Payment sent with memo! ${randomVibe}`, 'success', txHash);
+      
+    } catch(e: any) {
+      showToast(e.message?.slice(0,60), 'error');
+    }
     setLoading('');
-  }, [pendingPayId]);
+  }, [pendingPayId, wallet]);
 
   function copyToClipboard(text: string) { navigator.clipboard.writeText(text); showToast('📋 Copied!', 'success'); }
   function shareRequestLink(requestId: string) { const url = `${window.location.origin}/#reqId=${requestId}`; navigator.clipboard.writeText(url); showToast('🔗 Magic link copied!', 'success'); }
@@ -509,7 +550,6 @@ export default function Home() {
       <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Gas fee: ${gasEstimate || '~0.001 USDC'}.`} loading={loading === 'Processing payment...'} />
       <MintBadgeModal isOpen={showMintModal} onClose={() => { setShowMintModal(false); setPendingBadge(null); }} onMint={handleMintBadge} badgeName={pendingBadge?.name || ''} loading={loading === 'Minting badge...'} />
 
-      {/* QR MODAL */}
       {showQRModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn" onClick={() => setShowQRModal(false)}>
           <div className={`${cardBg} rounded-2xl p-6 max-w-sm w-full mx-4 border ${borderClass} text-center`} onClick={e => e.stopPropagation()}>
@@ -539,7 +579,6 @@ export default function Home() {
       <nav className={`relative z-20 border-b ${borderClass} ${navBg} backdrop-blur-xl sticky top-0 transition-all duration-300`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-2">
-            {/* LOGO KEREN - A dengan panah */}
             <svg className="w-10 h-10" viewBox="0 0 48 48" fill="none">
               <rect width="48" height="48" rx="12" fill="url(#logoGrad)"/>
               <text x="24" y="33" textAnchor="middle" fill="white" fontSize="26" fontWeight="900" fontFamily="Inter, sans-serif">A</text>
