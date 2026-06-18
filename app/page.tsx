@@ -42,7 +42,6 @@ const DAILY_BADGE_ABI = [
   'function canMintToday(address) view returns (bool)',
   'function totalBadges(address) view returns (uint256)',
   'function mintStreak(address) view returns (uint256)',
-  'function getTierInfo(uint256) view returns (string, string)'
 ];
 
 const USDC_ABI = [
@@ -162,8 +161,6 @@ export default function Home() {
   const [totalBadges, setTotalBadges] = useState(0);
   const [dailyStreak, setDailyStreak] = useState(0);
   const [canMintToday, setCanMintToday] = useState(false);
-  const [tierName, setTierName] = useState('Unranked');
-  const [tierIcon, setTierIcon] = useState('⚪');
   const [leaderboard, setLeaderboard] = useState<{address: string, points: number}[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [requestsPage, setRequestsPage] = useState(1);
@@ -225,7 +222,6 @@ export default function Home() {
   }, [wallet]);
 
   useEffect(() => {
-    if (wallet) { fetchBalance(); fetchMyRequests(); fetchMyPayments(); fetchUserStats(); fetchLeaderboard(); fetchDailyBadgeStatus(); fetchTierInfo(); }
   }, [wallet]);
 
   useEffect(() => { if (payId && wallet) estimateGas(); else setGasEstimate(null); }, [payId, wallet]);
@@ -243,13 +239,10 @@ export default function Home() {
     } catch (err) { console.error(err); }
   }
 
-  async function fetchTierInfo() {
     if (!wallet || SIMPLE_BADGE_ADDRESS === '0x0000000000000000000000000000000000000000') return;
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, provider);
-      const [name, icon] = await badgeContract.getTierInfo(totalBadges);
-      setTierName(name); setTierIcon(icon);
     } catch (err) { console.error(err); }
   }
 
@@ -261,7 +254,6 @@ export default function Home() {
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, signer);
       await (await badgeContract.mintDailyBadge()).wait();
-      await fetchDailyBadgeStatus(); await fetchTierInfo();
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#fbbf24', '#f59e0b', '#ef4444'] });
       showToast('🎖️ Daily badge minted! Come back tomorrow for another one!', 'success');
     } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
@@ -358,7 +350,6 @@ export default function Home() {
         const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
         try { await badgeContract.updateStreak(address); } catch(e) {}
       }
-      await fetchDailyBadgeStatus(); await fetchTierInfo();
     } catch (err: any) { showToast(err.message?.slice(0, 100), 'error'); }
     setIsConnecting(false);
   }
@@ -380,7 +371,6 @@ export default function Home() {
       await new Promise(resolve => setTimeout(resolve, 2000));
       await fetchUserStats();
       await fetchDailyBadgeStatus();
-      await fetchTierInfo();
       setShowMintModal(false);
       setPendingBadge(null);
       showToast(`🎖️ ${pendingBadge.name} badge minted!`, 'success');
