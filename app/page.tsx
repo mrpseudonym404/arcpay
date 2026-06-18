@@ -441,63 +441,71 @@ export default function Home() {
   const executePay = useCallback(async () => {
     const id = pendingPayId;
     setShowConfirmModal(false);
-    setLoading('Processing payment...');
+    setLoading("Processing payment...");
     try {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
-      
-      // 1. Dapatkan data request
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
       const req = await contract.requests(id);
       const amountInWei = req.amount;
       
-      // 2. Encode USDC transfer
-      const usdcInterface = new ethers.Interface([
-        'function transfer(address to, uint256 amount) returns (bool)'
-      ]);
-      const transferData = usdcInterface.encodeFunctionData('transfer', [req.creator, amountInWei]);
-      
-      // 3. Encode memoId (pakai requestId)
-      const memoId = id.slice(0, 66).padEnd(66, "0"); // pastikan 32 bytes
-      
-      // 4. Encode memoData (deskripsi request)
-      const memoData = ethers.hexlify(ethers.toUtf8Bytes(req.description.slice(0, 32))); // deskripsi max 32 chars
-      
-      // 5. Panggil Memo.memo (bukan USDC.transfer langsung)
+      // === BATCH TRANSACTION: payRequest + memo dalam 1 transaksi ===
       const memoContract = new ethers.Contract(MEMO_ADDRESS, MEMO_ABI, signer);
+      
+      // 1. Encode payRequest call
+      const payInterface = new ethers.Interface(CONTRACT_ABI);
+      const payData = payInterface.encodeFunctionData("payRequest", [id]);
+      
+      // 2. Encode memoId (requestId sebagai bytes32)
+      const memoId = id; // requestId sudah bytes32
+      const memoData = ethers.hexlify(ethers.toUtf8Bytes(req.description.slice(0, 32)));
+      
+      // 3. Batch: panggil payRequest + memo dalam satu transaksi
       const tx = await memoContract.memo(
-        USDC_ADDRESS,
-        transferData,
+        CONTRACT_ADDRESS,  // target = ArcPay contract
+        payData,           // data = payRequest(id)
         memoId,
         memoData,
-        { gasLimit: 500000 }
+        { value: amountInWei, gasLimit: 600000 }
       );
       
       const receipt = await tx.wait();
       const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [id]: txHash }));
-      setPayId('');
+      setPayId("");
       
-      // 6. Update state
-      await fetchMyRequests(); 
-      await fetchMyPayments(); 
-      await fetchBalance(); 
+      await fetchMyRequests();
+      await fetchMyPayments();
+      await fetchBalance();
       await fetchUserStats();
       
-      // 7. Cek badge
-      if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
+      if (SIMPLE_BADGE_ADDRESS !== "0x0000000000000000000000000000000000000000") {
         try {
           const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
           await badgeContract.updateStats(wallet, 0, Number(ethers.formatUnits(amountInWei, 18)), { gasLimit: 300000 });
           const hasFirstPayment = await badgeContract.hasBadge(wallet, 1);
           if (!hasFirstPayment) {
-            setPendingBadge({ id: 1, name: 'First Payment' });
+            setPendingBadge({ id: 1, name: "First Payment" });
             setShowMintModal(true);
           }
         } catch (badgeError) { console.error("Badge award failed:", badgeError); }
       }
       
-      // 8. Toast dengan info memo
+      confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ["#10b981", "#06b6d4", "#f43f5e"] });
+      const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
+      showToast(`🎉 Payment sent with memo! ${randomVibe}`, "success", txHash);
+    } catch(e: any) {
+      showToast(e.message?.slice(0,60), "error");
+    }
+    setLoading("");
+  }, [pendingPayId, wallet]);
+    const id = pendingPayId;
+    setShowConfirmModal(false);
+    setLoading('Processing payment...');
+    try {
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const signer = await provider.getSigner();
+      
       confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ['#10b981', '#06b6d4', '#f43f5e'] });
       const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
       showToast(`🎉 Payment sent with memo! ${randomVibe}`, 'success', txHash);
