@@ -1,6 +1,6 @@
 # ArcPay - USDC Payment Gateway on Arc Testnet
 
-Send and receive USDC payment requests on the Arc L1 blockchain. Create invoices, share via Request ID, Magic Link, or QR code, and get paid instantly - no middleman, no signup.
+Send and receive USDC payment requests on the Arc L1 blockchain. Create invoices, share via Request ID, Magic Link, or QR code, and get paid instantly - no middleman, no signup. Built-in x402 agent gateway allows AI agents to autonomously create and pay requests.
 
 Live Demo: https://arcpay-gamma.vercel.app
 
@@ -17,13 +17,14 @@ Live Demo: https://arcpay-gamma.vercel.app
 
 ## What is ArcPay?
 
-ArcPay is a decentralized payment gateway built on Arc Testnet - a USDC-native L1 blockchain by Circle. It allows anyone to create USDC payment requests, share them via Request ID, Magic Link, or QR code, and let payers settle instantly with native USDC transfers.
+ArcPay is a decentralized payment gateway built on Arc Testnet - a USDC-native L1 blockchain by Circle. It allows anyone (human or AI agent) to create USDC payment requests, share them via Request ID, Magic Link, or QR code, and let payers settle instantly with native USDC transfers. With built-in x402 agent gateway, AI agents can autonomously discover, request, and settle payments on-chain.
 
 Why ArcPay?
 - No registration - just connect your wallet
 - No middleman - direct USDC transfer on-chain
 - No hidden fees - only Arc's minimal gas fee
 - Fully open source - built for the Arc ecosystem
+- Agent-native - x402 protocol for AI agent payments
 
 ## Features
 
@@ -53,50 +54,62 @@ Why ArcPay?
 
 ### Developer & UX
 - Real-time Balance - Auto-refreshes on new blocks
+- Gas Estimate - Shows estimated gas before payment
 - Confirm Modal - Confirmation before paying to avoid mistakes
 - Dark/Light Mode - Toggle theme, remembers your preference
 - Mobile Responsive - Fully functional on desktop and mobile
+- Toast Notifications - Clickable notifications with ArcScan link
 - Confetti Animation - Celebration on successful payment
 - Transaction Memos - On-chain structured context for payment reconciliation
+
+### Agent Gateway (x402)
+- **x402 Protocol** - AI agents can create payment requests via `GET /api/agent` (returns 402 Payment Required)
+- **Agent Wallet** - Dedicated agent wallet for autonomous on-chain settlement
+- **x402 Payment** - Pay request via `POST /api/agent/pay` with on-chain verification
+- **Agent Activity Dashboard** - Track all agent requests and payment status
+- **Refresh Button** - Real-time update agent request status
 
 ## How It Works
 
 ### For Creator (Wallet A)
-
-1. **Connect wallet** (Rabby/MetaMask) to Arc Testnet
-2. **Create Request** - fill description and amount in USDC
-3. **Share** - copy Request ID, click the Magic Link, or generate a QR code
+1. Connect wallet (Rabby/MetaMask) to Arc Testnet
+2. Create Request - fill description and amount in USDC
+3. Share - copy Request ID, click the Magic Link, or generate a QR code
 4. Send the ID/link to your payer via any chat app or have them scan the QR code
 
 ### For Payer (Wallet B)
-
-1. **Connect wallet** to Arc Testnet
-2. **Open the Magic Link**, paste the Request ID, or scan the QR code
-3. **Click Pay Request** - confirm transaction in wallet
-4. **Done!** - Status changes to "Paid", balance updates automatically
-5. **Payment tracked** - Each payment includes a Transaction Memo with the Request ID for easy reconciliation and CSV export
+1. Connect wallet to Arc Testnet
+2. Open the Magic Link, paste the Request ID, or scan the QR code
+3. Click Pay Request - confirm transaction in wallet
+4. Done - Status changes to "Paid", balance updates automatically
+5. Payment tracked - Each payment includes a Transaction Memo with the Request ID for easy reconciliation and CSV export
 
 ### Badge System
-
 1. Complete tasks (create request, pay request, etc.)
-2. A pop-up "Badge Earned!" appears
+2. A pop-up "Badge Earned" appears
 3. Click "Mint Badge" (only once per badge)
 4. The badge appears in your collection with +50 points
 
 ### QR Code Payment
-
 1. Open any request in "My Requests"
 2. Click the "QR" button next to the request
 3. Scan the QR code with your mobile wallet
 4. Pay instantly - no need to copy/paste long IDs
 
 ### Transaction Memos
-
 Every payment includes a structured Transaction Memo containing:
-- **Request ID** as memoId
-- **Description** as memoData
+- Request ID as memoId
+- Description as memoData
 - Enables automatic reconciliation
 - Exported in CSV for accounting purposes
+
+### Agent Gateway (x402)
+1. Agent calls `GET /api/agent?description=...&amount=...`
+2. API returns `402 Payment Required` with x402 headers
+3. Agent pays via Circle Agent Wallet
+4. Request created on-chain with verification
+5. Check status via `POST /api/agent/pay` with requestId
+6. Track all agent requests in Agent Dashboard
 
 ## Smart Contracts
 
@@ -118,6 +131,7 @@ View all contracts on ArcScan: https://testnet.arcscan.app/address/0x7B5d915e35A
 | Blockchain | Arc Testnet (Chain ID: 5042002) |
 | Token | Native USDC (18 decimals) |
 | Wallet Integration | ethers.js v6 |
+| Agent Integration | x402 Protocol, Circle Agent Wallet |
 | Styling | Tailwind CSS |
 | Deployment | Vercel |
 | Analytics | Vercel Web Analytics |
@@ -133,6 +147,7 @@ ArcPay leverages the full Arc developer stack:
 | Circle Contracts API | Smart contract deployment and interaction |
 | Event Monitoring | Webhook + Telegram bot for real-time notifications |
 | Transaction Memos | On-chain structured context for payment reconciliation |
+| x402 Protocol | Agent-to-agent payment gateway |
 | CCTP Ready | Future cross-chain USDC transfers |
 | Agentic Commerce | Native support for AI agent-to-agent payments |
 
