@@ -1,25 +1,25 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+  TrendingUp as TrendingIcon,
 import { ethers } from 'ethers';
+  TrendingUp as TrendingIcon,
 import confetti from 'canvas-confetti';
-import QRCode from 'react-qr-code';
+import QRCode from 'qrcode.react';
 import { 
+  TrendingUp as TrendingIcon,
   Sparkles, Wallet, Send, Copy, Share2, ExternalLink, 
   Moon, Sun, HelpCircle, Download, Search, ChevronLeft, 
   ChevronRight, CheckCircle, Clock, Award, Zap, Star, 
   Shield, Trophy, Layers, Home, Droplet, X, ShieldCheck, 
   FileText, Cookie, Menu, BookOpen, Gift, Flame, TrendingUp,
-  BarChart3, User, Gem, Medal, BadgeCheck,
-  Bot, RefreshCw
+  BarChart3, User, Gem, Medal, BadgeCheck
 } from 'lucide-react';
 
 const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000';
-const MEMO_ADDRESS = '0x5294E9927c3306DcBaDb03fe70b92e01cCede505';
 const ARC_CHAIN_ID = '0x4CEF52';
 const SIMPLE_BADGE_ADDRESS = '0x4ceB5d7AB432339eCe9Ed41E3B93fF2466834Cd8';
 const DAILY_BADGE_CONTRACT_ADDRESS = '0xA9323D36E49aC6aC49F38aAd431f4C2b69280475';
-const AGENT_ADDRESS = process.env.NEXT_PUBLIC_AGENT_ADDRESS || '0x605CEB17F2963B67C2CcCf4EF459117E4e513102';
 
 const CONTRACT_ABI = [
   'function createRequest(string description, uint256 amount) returns (bytes32)',
@@ -43,16 +43,13 @@ const DAILY_BADGE_ABI = [
   'function mintDailyBadge() external',
   'function canMintToday(address) view returns (bool)',
   'function totalBadges(address) view returns (uint256)',
-  'function mintStreak(address) view returns (uint256)'
+  'function mintStreak(address) view returns (uint256)',
+  'function getTierInfo(uint256) view returns (string, string)'
 ];
 
 const USDC_ABI = [
   'function decimals() view returns (uint8)',
   'function balanceOf(address) view returns (uint256)'
-];
-
-const MEMO_ABI = [
-  'function memo(address target, bytes calldata data, bytes32 memoId, bytes calldata memoData) external'
 ];
 
 const badgeConfig = [
@@ -70,8 +67,8 @@ const vibeQuestions = ["You're doing great!", "Keep building!", "Another step cl
 
 const exportToCSV = (data: any[], filename: string) => {
   if (data.length === 0) return;
-  const headers = ['Description', 'Amount (USDC)', 'Request ID', 'Memo ID', 'Date'];
-  const rows = data.map(item => [`"${item.description.replace(/"/g, '""')}"`, item.amount, item.id, item.id, new Date().toLocaleDateString()]);
+  const headers = ['Description', 'Amount (USDC)', 'Request ID', 'Date'];
+  const rows = data.map(item => [`"${item.description.replace(/"/g, '""')}"`, item.amount, item.id, new Date().toLocaleDateString()]);
   const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -144,7 +141,6 @@ export default function Home() {
   const [loading, setLoading] = useState('');
   const [myRequests, setMyRequests] = useState<any[]>([]);
   const [myPayments, setMyPayments] = useState<any[]>([]);
-  const [agentRequests, setAgentRequests] = useState<any[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [isFetchingPayments, setIsFetchingPayments] = useState(false);
@@ -155,7 +151,7 @@ export default function Home() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'paid'>('all');
   const [darkMode, setDarkMode] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [activeTab, setActiveTab] = useState<'requests' | 'payments' | 'badges' | 'leaderboard' | 'analytics' | 'agent'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'payments' | 'badges' | 'leaderboard' | 'analytics'>('requests');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingPayId, setPendingPayId] = useState('');
   const [userPoints, setUserPoints] = useState(0);
@@ -172,19 +168,9 @@ export default function Home() {
   const [paymentsPage, setPaymentsPage] = useState(1);
   const [showMintModal, setShowMintModal] = useState(false);
   const [pendingBadge, setPendingBadge] = useState<{id: number, name: string} | null>(null);
-  const [showQRModal, setShowQRModal] = useState(false);
+const [showQRModal, setShowQRModal] = useState(false);
   const [qrRequestId, setQrRequestId] = useState('');
   const itemsPerPage = 5;
-
-  const totalRequests = myRequests.length;
-  const totalPayments = myPayments.length;
-  const totalVolume = myPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
-  const pendingRequests = myRequests.filter(r => !r.paid).length;
-  const paidRequests = myRequests.filter(r => r.paid).length;
-  const userBadgeCount = userBadges.filter(b => b).length;
-  const badgeProgress = (userBadgeCount / 6) * 100;
-  const nextBadgeNames = ["First Request", "First Payment", "10 Requests", "100 USDC Paid", "7 Day Streak", "Legend"];
-  const nextBadgeName = nextBadgeNames[userBadges.findIndex(b => !b)] || "All badges collected!";
 
   useEffect(() => {
     const saved = localStorage.getItem('arcpay-darkmode');
@@ -227,15 +213,7 @@ export default function Home() {
   }, [wallet]);
 
   useEffect(() => {
-    if (wallet) {
-      fetchBalance();
-      fetchMyRequests();
-      fetchMyPayments();
-      fetchUserStats();
-      fetchLeaderboard();
-      fetchDailyBadgeStatus();
-      fetchAgentRequests();
-    }
+    if (wallet) { fetchBalance(); fetchMyRequests(); fetchMyPayments(); fetchUserStats(); fetchLeaderboard(); fetchDailyBadgeStatus(); fetchTierInfo(); }
   }, [wallet]);
 
   useEffect(() => { if (payId && wallet) estimateGas(); else setGasEstimate(null); }, [payId, wallet]);
@@ -253,6 +231,16 @@ export default function Home() {
     } catch (err) { console.error(err); }
   }
 
+  async function fetchTierInfo() {
+    if (!wallet || SIMPLE_BADGE_ADDRESS === '0x0000000000000000000000000000000000000000') return;
+    try {
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, provider);
+      const [name, icon] = await badgeContract.getTierInfo(totalBadges);
+      setTierName(name); setTierIcon(icon);
+    } catch (err) { console.error(err); }
+  }
+
   async function mintDailyBadge() {
     if (!canMintToday) { showToast('Already minted today! Come back tomorrow', 'error'); return; }
     setLoading('Minting badge...');
@@ -261,7 +249,7 @@ export default function Home() {
       const signer = await provider.getSigner();
       const badgeContract = new ethers.Contract(DAILY_BADGE_CONTRACT_ADDRESS, DAILY_BADGE_ABI, signer);
       await (await badgeContract.mintDailyBadge()).wait();
-      await fetchDailyBadgeStatus();
+      await fetchDailyBadgeStatus(); await fetchTierInfo();
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#fbbf24', '#f59e0b', '#ef4444'] });
       showToast('🎖️ Daily badge minted! Come back tomorrow for another one!', 'success');
     } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
@@ -320,31 +308,12 @@ export default function Home() {
       const ids = await contract.getRequests(wallet);
       const requestsData = await Promise.all(ids.map(async (id: string) => {
         const req = await contract.requests(id);
-        return { id, description: req.description, amount: ethers.formatUnits(req.amount, 18), paid: req.paid };
+        return { id, description: req.description, amount: req.amount, paid: req.paid };
       }));
       setMyRequests(requestsData.reverse());
     } catch (err) { console.error(err); }
     setIsFetching(false);
   }
-
-  async function fetchAgentRequests() {
-    if (!wallet) return;
-    try {
-      const provider = new ethers.BrowserProvider((window as any).ethereum);
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-      const ids = await contract.getRequests(AGENT_ADDRESS);
-      const data = await Promise.all(ids.map(async (id: string) => {
-        const req = await contract.requests(id);
-        return { id, description: req.description, amount: ethers.formatUnits(req.amount, 18), paid: req.paid };
-      }));
-      setAgentRequests(data.reverse());
-    } catch (err) { console.error(err); }
-  }
-
-  const refreshAgentRequests = async () => {
-    await fetchAgentRequests();
-    showToast('Agent requests refreshed!', 'success');
-  };
 
   async function estimateGas() {
     if (!wallet || !payId) return;
@@ -352,8 +321,7 @@ export default function Home() {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
       const gasPrice = await provider.getFeeData();
-      const reqData = await contract.requests(payId);
-      const estimate = await contract.payRequest.estimateGas(payId, { value: reqData.amount });
+      const estimate = await contract.payRequest.estimateGas(payId, { value: 1 });
       setGasEstimate(`${(Number(estimate) * Number(gasPrice.gasPrice || 0) / 1e18).toFixed(6)} USDC`);
     } catch (err) { setGasEstimate('N/A'); }
   }
@@ -377,7 +345,7 @@ export default function Home() {
         const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
         try { await badgeContract.updateStreak(address); } catch(e) {}
       }
-      await fetchDailyBadgeStatus();
+      await fetchDailyBadgeStatus(); await fetchTierInfo();
     } catch (err: any) { showToast(err.message?.slice(0, 100), 'error'); }
     setIsConnecting(false);
   }
@@ -399,6 +367,7 @@ export default function Home() {
       await new Promise(resolve => setTimeout(resolve, 2000));
       await fetchUserStats();
       await fetchDailyBadgeStatus();
+      await fetchTierInfo();
       setShowMintModal(false);
       setPendingBadge(null);
       showToast(`🎖️ ${pendingBadge.name} badge minted!`, 'success');
@@ -467,7 +436,6 @@ export default function Home() {
   }
 
   const handlePayClick = () => { if (!payId) return showToast('Enter Request ID', 'error'); setPendingPayId(payId); setShowConfirmModal(true); };
-
   const executePay = useCallback(async () => {
     const id = pendingPayId;
     setShowConfirmModal(false);
@@ -478,35 +446,13 @@ export default function Home() {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
       const req = await contract.requests(id);
       const amountInWei = req.amount;
-
-      const tx1 = await contract.payRequest(id, { value: amountInWei, gasLimit: 500000 });
-      const receipt1 = await tx1.wait();
-      const txHash = receipt1.hash;
+      const tx = await contract.payRequest(id, { value: amountInWei, gasLimit: 500000 });
+      const receipt = await tx.wait();
+      const txHash = receipt.hash;
       setTxHashes(prev => ({ ...prev, [id]: txHash }));
       setPayId('');
-
-      const usdcInterface = new ethers.Interface([
-        'function transfer(address to, uint256 amount) returns (bool)'
-      ]);
-      const transferData = usdcInterface.encodeFunctionData('transfer', [req.creator, amountInWei]);
+      await fetchMyRequests(); await fetchMyPayments(); await fetchBalance(); await fetchUserStats();
       
-      const memoId = id;
-      const memoData = ethers.hexlify(ethers.toUtf8Bytes(req.description.slice(0, 32)));
-      
-      const memoContract = new ethers.Contract(MEMO_ADDRESS, MEMO_ABI, signer);
-      await memoContract.memo(
-        USDC_ADDRESS,
-        transferData,
-        memoId,
-        memoData,
-        { gasLimit: 300000 }
-      );
-
-      await fetchMyRequests();
-      await fetchMyPayments();
-      await fetchBalance();
-      await fetchUserStats();
-
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
           const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
@@ -518,16 +464,12 @@ export default function Home() {
           }
         } catch (badgeError) { console.error("Badge award failed:", badgeError); }
       }
-
       confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 }, colors: ['#10b981', '#06b6d4', '#f43f5e'] });
       const randomVibe = vibeQuestions[Math.floor(Math.random() * vibeQuestions.length)];
-      showToast(`🎉 Payment sent with memo! ${randomVibe}`, 'success', txHash);
-
-    } catch(e: any) {
-      showToast(e.message?.slice(0,60), 'error');
-    }
+      showToast(`🎉 Payment sent. ${randomVibe}`, 'success', txHash);
+    } catch(e: any) { showToast(e.message?.slice(0,60), 'error'); }
     setLoading('');
-  }, [pendingPayId, wallet]);
+  }, [pendingPayId]);
 
   function copyToClipboard(text: string) { navigator.clipboard.writeText(text); showToast('📋 Copied!', 'success'); }
   function shareRequestLink(requestId: string) { const url = `${window.location.origin}/#reqId=${requestId}`; navigator.clipboard.writeText(url); showToast('🔗 Magic link copied!', 'success'); }
@@ -537,6 +479,7 @@ export default function Home() {
   const filteredRequests = myRequests.filter(req => (req.description.toLowerCase().includes(searchTerm.toLowerCase()) || req.id.toLowerCase().includes(searchTerm.toLowerCase())) && (filterStatus === 'all' || (filterStatus === 'pending' && !req.paid) || (filterStatus === 'paid' && req.paid)));
   const paginatedRequests = filteredRequests.slice((requestsPage - 1) * itemsPerPage, requestsPage * itemsPerPage);
   const paginatedPayments = myPayments.slice((paymentsPage - 1) * itemsPerPage, paymentsPage * itemsPerPage);
+  const userBadgeCount = userBadges.filter(b => b).length;
   const todayBadgeId = new Date().getDay() % 7;
 
   const bgClass = darkMode ? 'bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900' : 'bg-gradient-to-br from-gray-100 via-white to-gray-100';
@@ -559,19 +502,6 @@ export default function Home() {
       <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} onConfirm={executePay} title="Confirm Payment" message={`Pay for request ID: ${truncateHash(pendingPayId)}. Gas fee: ${gasEstimate || '~0.001 USDC'}.`} loading={loading === 'Processing payment...'} />
       <MintBadgeModal isOpen={showMintModal} onClose={() => { setShowMintModal(false); setPendingBadge(null); }} onMint={handleMintBadge} badgeName={pendingBadge?.name || ''} loading={loading === 'Minting badge...'} />
 
-      {showQRModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn" onClick={() => setShowQRModal(false)}>
-          <div className={`${cardBg} rounded-2xl p-6 max-w-sm w-full mx-4 border ${borderClass} text-center`} onClick={e => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-4">Scan to Pay</h3>
-            <div className="bg-white p-4 rounded-xl inline-block mx-auto">
-              <QRCode value={`${window.location.origin}/#reqId=${qrRequestId}`} size={200} />
-            </div>
-            <p className="text-xs text-gray-400 mt-4 break-all">{qrRequestId}</p>
-            <button onClick={() => setShowQRModal(false)} className="mt-4 px-6 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:scale-105 transition">Close</button>
-          </div>
-        </div>
-      )}
-
       {toast && (
         <div 
           className={`fixed bottom-5 left-5 z-50 px-6 py-4 rounded-xl shadow-2xl backdrop-blur-md text-base font-medium ${toast.type === 'success' ? 'bg-green-600/90' : 'bg-red-600/90'} text-white animate-fadeIn max-w-sm cursor-pointer hover:scale-105 transition-all`}
@@ -587,45 +517,27 @@ export default function Home() {
 
       <nav className={`relative z-20 border-b ${borderClass} ${navBg} backdrop-blur-xl sticky top-0 transition-all duration-300`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap justify-between items-center gap-3">
-          <div className="flex items-center gap-2">
-            <svg className="w-10 h-10" viewBox="0 0 48 48" fill="none">
-              <rect width="48" height="48" rx="12" fill="url(#logoGrad)"/>
-              <text x="24" y="33" textAnchor="middle" fill="white" fontSize="26" fontWeight="900" fontFamily="Inter, sans-serif">A</text>
-              <path d="M34 22L38 26L34 30" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M38 26H28" stroke="white" strokeWidth="3" strokeLinecap="round"/>
-              <defs>
-                <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#ec4899"/>
-                  <stop offset="100%" stopColor="#06b6d4"/>
-                </linearGradient>
-              </defs>
-            </svg>
-            <span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">ArcPay</span>
-            <span className="text-[10px] font-mono text-gray-400 bg-white/10 px-2 py-0.5 rounded-full flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>Arc Testnet</span>
-          </div>
+          <div className="flex items-center gap-2"><div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-cyan-500 rounded-lg shadow-lg animate-pulse"></div><span className="text-xl font-bold bg-gradient-to-r from-pink-400 to-cyan-400 bg-clip-text text-transparent">ArcPay</span><span className="text-[10px] font-mono text-gray-400 bg-white/10 px-2 py-0.5 rounded-full flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>Arc Testnet</span></div>
           <div className="hidden md:flex items-center gap-4">
             <button onClick={() => setActiveTab('requests')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'requests' ? 'text-cyan-400' : 'text-gray-400'}`}><Layers className="w-3.5 h-3.5" /> Requests</button>
             <button onClick={() => setActiveTab('payments')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'payments' ? 'text-cyan-400' : 'text-gray-400'}`}><Send className="w-3.5 h-3.5" /> Payments</button>
             <button onClick={() => setActiveTab('badges')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'badges' ? 'text-cyan-400' : 'text-gray-400'}`}><Award className="w-3.5 h-3.5" /> Badges</button>
             <button onClick={() => setActiveTab('leaderboard')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'leaderboard' ? 'text-cyan-400' : 'text-gray-400'}`}><Trophy className="w-3.5 h-3.5" /> Leaderboard</button>
-            <button onClick={() => setActiveTab('analytics')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-3.5 h-3.5" /> Analytics</button>
-            <button onClick={() => setActiveTab('agent')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'agent' ? 'text-cyan-400' : 'text-gray-400'}`}><Bot className="w-3.5 h-3.5" /> Agent</button>
+<button onClick={() => setActiveTab('analytics')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-3.5 h-3.5" /> Analytics</button>
             <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-1"><Droplet className="w-3.5 h-3.5" /> Faucet</a>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setDarkMode(!darkMode)} className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110">{darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}</button>
-            <button onClick={() => setShowTutorial(true)} className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110"><HelpCircle className="w-4 h-4" /></button>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"><Menu className="w-4 h-4" /></button>
+            <button onClick={() => setDarkMode(!darkMode)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110">{darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}</button>
+            <button onClick={() => setShowTutorial(true)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center hover:scale-110"><HelpCircle className="w-4 h-4" /></button>
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition flex items-center justify-center"><Menu className="w-4 h-4" /></button>
             {!wallet ? (
-              <button onClick={connectWallet} disabled={isConnecting} className="px-6 py-3 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50 flex items-center gap-2 active:scale-95">
-                {isConnecting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Wallet className="w-4 h-4" /> Connect</>}
-              </button>
+              <button onClick={connectWallet} disabled={isConnecting} className="px-6 py-2.5 rounded-full bg-gradient-to-r from-pink-600 to-cyan-600 text-sm font-medium hover:scale-105 transition-all hover:shadow-lg hover:shadow-pink-500/30 disabled:opacity-50 flex items-center gap-2 active:scale-95">{isConnecting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Wallet className="w-4 h-4" /> Connect</>}</button>
             ) : (
-              <div className="flex items-center gap-2 md:gap-3 bg-white/5 rounded-full border border-white/10 px-3 py-1.5">
+              <div className="flex items-center gap-2 md:gap-3 bg-white/5 rounded-full border border-white/10 px-2 py-1 md:px-3 md:py-1.5">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="font-mono text-sm hidden sm:inline">{wallet.slice(0,6)}...{wallet.slice(-4)}</span>
-                  <span className="text-xs bg-gradient-to-r from-pink-500/30 to-cyan-500/30 px-2 py-0.5 rounded-full">{parseFloat(balance).toFixed(2)} USDC</span>
+                  <span className="font-mono text-xs md:text-sm">{wallet.slice(0,6)}...{wallet.slice(-4)}</span>
+                  <span className="text-xs bg-gradient-to-r from-pink-500/30 to-cyan-500/30 px-1.5 py-0.5 rounded-full">{parseFloat(balance).toFixed(2)} USDC</span>
                   <span className="hidden md:inline-flex text-xs bg-yellow-500/30 px-2 py-0.5 rounded-full items-center gap-1"><Award className="w-3 h-3" /> {totalBadges}</span>
                   <span className="hidden md:inline-flex text-xs bg-purple-500/30 px-2 py-0.5 rounded-full items-center gap-1"><Star className="w-3 h-3" /> {userPoints}</span>
                 </div>
@@ -640,10 +552,9 @@ export default function Home() {
             <button onClick={() => { setActiveTab('payments'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'payments' ? 'text-cyan-400' : 'text-gray-400'}`}><Send className="w-4 h-4" /> Payments</button>
             <button onClick={() => { setActiveTab('badges'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'badges' ? 'text-cyan-400' : 'text-gray-400'}`}><Award className="w-4 h-4" /> Badges</button>
             <button onClick={() => { setActiveTab('leaderboard'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'leaderboard' ? 'text-cyan-400' : 'text-gray-400'}`}><Trophy className="w-4 h-4" /> Leaderboard</button>
-            <button onClick={() => { setActiveTab('analytics'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-4 h-4" /> Analytics</button>
-            <button onClick={() => { setActiveTab('agent'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'agent' ? 'text-cyan-400' : 'text-gray-400'}`}><Bot className="w-4 h-4" /> Agent</button>
+<button onClick={() => { setActiveTab('analytics'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-4 h-4" /> Analytics</button>
             <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-2"><Droplet className="w-4 h-4" /> Faucet</a>
-            <button onClick={disconnectWallet} className="mt-2 w-full px-4 py-3 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition flex items-center justify-center gap-2 text-sm font-medium">🔌 Disconnect Wallet</button>
+            <button onClick={disconnectWallet} className="mt-2 w-full px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition flex items-center justify-center gap-2 text-sm font-medium">🔌 Disconnect Wallet</button>
           </div>
         )}
       </nav>
@@ -695,6 +606,7 @@ export default function Home() {
               <div>
                 <div className="flex items-center gap-2"><h3 className="font-semibold">Daily Badge</h3>{dailyStreak > 0 && <span className="text-xs bg-orange-500/30 px-2 py-0.5 rounded-full flex items-center gap-1"><Flame className="w-3 h-3" /> {dailyStreak} day streak</span>}</div>
                 <p className="text-xs text-gray-400">Mint 1 badge every day. Streak rewards at 7 days!</p>
+                {tierName !== 'Unranked' && <p className="text-xs text-cyan-400 mt-1">{tierIcon} {tierName} • {totalBadges} badges collected</p>}
               </div>
             </div>
             <button onClick={mintDailyBadge} disabled={!canMintToday || loading !== ''} className={`px-5 py-2 rounded-xl font-medium text-sm transition-all hover:scale-105 flex items-center gap-2 ${canMintToday ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:shadow-lg hover:shadow-yellow-500/30' : 'bg-gray-600/50 cursor-not-allowed'}`}>{canMintToday ? <><Gift className="w-4 h-4" /> Mint Today's Badge</> : <><CheckCircle className="w-4 h-4" /> Already Minted</>}</button>
@@ -703,30 +615,19 @@ export default function Home() {
 
         {wallet && (
           <>
-            <div className="flex gap-6 mt-10 border-b border-white/10 mb-6 overflow-x-auto flex-nowrap whitespace-nowrap">
-              <button onClick={() => setActiveTab('requests')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'requests' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Layers className="w-4 h-4" /> Requests</button>
-              <button onClick={() => setActiveTab('payments')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'payments' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Send className="w-4 h-4" /> Payments{myPayments.length > 0 && <button onClick={() => exportToCSV(myPayments, 'arcpay-payments')} className="ml-2 text-xs bg-cyan-600/50 hover:bg-cyan-600 px-2 py-0.5 rounded-full transition" title="Export CSV"><Download className="w-3 h-3 inline" /> CSV</button>}</button>
+            <div className="flex gap-6 mt-10 border-b border-white/10 mb-6">
+              <button onClick={() => setActiveTab('requests')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'requests' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Layers className="w-4 h-4" /> My Requests</button>
+              <button onClick={() => setActiveTab('payments')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'payments' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Send className="w-4 h-4" /> My Payments{myPayments.length > 0 && <button onClick={() => exportToCSV(myPayments, 'arcpay-payments')} className="ml-2 text-xs bg-cyan-600/50 hover:bg-cyan-600 px-2 py-0.5 rounded-full transition" title="Export CSV"><Download className="w-3 h-3 inline" /> CSV</button>}</button>
               <button onClick={() => setActiveTab('badges')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'badges' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Award className="w-4 h-4" /> Badges{userBadgeCount > 0 && <span className="text-xs bg-cyan-500/30 px-1.5 py-0.5 rounded-full">{userBadgeCount}</span>}</button>
               <button onClick={() => setActiveTab('leaderboard')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'leaderboard' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Trophy className="w-4 h-4" /> Leaderboard</button>
-              <button onClick={() => setActiveTab('analytics')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'analytics' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><BarChart3 className="w-4 h-4" /> Analytics</button>
-              <button onClick={() => setActiveTab('agent')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'agent' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Bot className="w-4 h-4" /> Agent</button>
+<button onClick={() => setActiveTab('analytics')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-3.5 h-3.5" /> Analytics</button>
             </div>
 
             {activeTab === 'requests' && (
               <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
                 <div className="flex flex-wrap justify-between items-center mb-5 gap-3"><h2 className="text-xl font-semibold flex items-center gap-2"><Layers className="w-5 h-5 text-cyan-400" /> My Requests</h2><div className="flex gap-2"><div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" /><input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputBg} border ${borderClass} rounded-xl pl-8 pr-3 py-1.5 text-sm w-32 sm:w-40 focus:outline-none focus:border-cyan-500`} /></div><select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as any)} className={`${inputBg} border ${borderClass} rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500`}><option value="all">All</option><option value="pending">Pending</option><option value="paid">Paid</option></select></div></div>
                 {isFetching ? <div className="space-y-3"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div> : paginatedRequests.length === 0 ? <div className="text-center py-12"><div className="text-6xl mb-3">📭</div><p className="text-gray-400">No requests yet</p><button onClick={() => setShowTutorial(true)} className="mt-3 text-xs text-cyan-400 hover:text-cyan-300">❓ Need help?</button></div> : <div className="space-y-3">{paginatedRequests.map((req, idx) => (<div key={idx} className="bg-black/30 rounded-xl p-4 border border-white/5 hover:border-white/20 transition-all hover:scale-[1.01]"><div className="flex flex-wrap justify-between items-start gap-2"><div className="flex-1"><p className="font-medium truncate">{req.description}</p><div className="flex flex-wrap items-center gap-2 mt-1"><p className="text-xs text-gray-400 font-mono">{truncateHash(req.id)}</p><button onClick={() => copyToClipboard(req.id)} className="bg-gray-700 hover:bg-cyan-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Copy className="w-3 h-3" /> Copy</button><button onClick={() => shareRequestLink(req.id)} className="bg-gray-700 hover:bg-green-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition"><Share2 className="w-3 h-3" /> Share</button>
-                          <button 
-                            onClick={() => { 
-                              console.log("QR clicked for:", req.id); 
-                              setQrRequestId(req.id); 
-                              setShowQRModal(true); 
-                            }} 
-                            className="bg-gray-700 hover:bg-purple-600 px-3 py-1.5 rounded text-xs flex items-center gap-1 transition font-medium"
-                          >
-                            📱 QR
-                          </button>
-                          {txHashes[req.id] && <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Tx</a>}</div><p className="text-xs text-cyan-300 mt-1">{req.amount} USDC</p></div><span className={`text-xs px-3 py-1 rounded-full border ${req.paid ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>{req.paid ? <><CheckCircle className="w-3 h-3 inline mr-1" /> Paid</> : <><Clock className="w-3 h-3 inline mr-1" /> Pending</>}</span></div></div>))}<Pagination currentPage={requestsPage} totalPages={Math.ceil(filteredRequests.length / itemsPerPage)} onPageChange={setRequestsPage} /></div>}
+                          <button onClick={() => { setQrRequestId(req.id); setShowQRModal(true); }} className="bg-gray-700 hover:bg-purple-600 px-2 py-1 rounded text-xs flex items-center gap-1 transition">📱 QR</button>{txHashes[req.id] && <a href={`https://testnet.arcscan.app/tx/${txHashes[req.id]}`} target="_blank" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Tx</a>}</div><p className="text-xs text-cyan-300 mt-1">{ethers.formatUnits(req.amount, 18)} USDC</p></div><span className={`text-xs px-3 py-1 rounded-full border ${req.paid ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>{req.paid ? <><CheckCircle className="w-3 h-3 inline mr-1" /> Paid</> : <><Clock className="w-3 h-3 inline mr-1" /> Pending</>}</span></div></div>))}<Pagination currentPage={requestsPage} totalPages={Math.ceil(filteredRequests.length / itemsPerPage)} onPageChange={setRequestsPage} /></div>}
               </div>
             )}
 
@@ -794,130 +695,6 @@ export default function Home() {
                   ))}
                 </div>
                 <p className="text-center text-xs text-gray-500 mt-4">✨ Keep building to climb the ranks! ✨</p>
-              </div>
-            )}
-
-            {activeTab === 'analytics' && (
-              <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
-                <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><BarChart3 className="w-5 h-5 text-cyan-400" /> Analytics Dashboard</h2>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-white/5 rounded-xl p-4 text-center">
-                    <p className="text-2xl font-bold">{totalRequests}</p>
-                    <p className="text-xs text-gray-400">Total Requests</p>
-                  </div>
-                  <div className="bg-white/5 rounded-xl p-4 text-center">
-                    <p className="text-2xl font-bold">{totalPayments}</p>
-                    <p className="text-xs text-gray-400">Total Payments</p>
-                  </div>
-                  <div className="bg-white/5 rounded-xl p-4 text-center">
-                    <p className="text-2xl font-bold">{totalVolume.toFixed(2)}</p>
-                    <p className="text-xs text-gray-400">Volume (USDC)</p>
-                  </div>
-                  <div className="bg-white/5 rounded-xl p-4 text-center">
-                    <p className="text-2xl font-bold">{userPoints}</p>
-                    <p className="text-xs text-gray-400">Total Points</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-white/5 rounded-xl p-4">
-                    <h3 className="font-semibold mb-3 flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> Request Status</h3>
-                    <div className="flex justify-between text-sm mb-2"><span>Pending</span><span>{pendingRequests}</span></div>
-                    <div className="w-full bg-white/10 rounded-full h-2 mb-3">
-                      <div className="bg-yellow-500 h-2 rounded-full" style={{ width: `${totalRequests ? (pendingRequests / totalRequests) * 100 : 0}%` }}></div>
-                    </div>
-                    <div className="flex justify-between text-sm mb-2"><span>Paid</span><span>{paidRequests}</span></div>
-                    <div className="w-full bg-white/10 rounded-full h-2">
-                      <div className="bg-green-500 h-2 rounded-full" style={{ width: `${totalRequests ? (paidRequests / totalRequests) * 100 : 0}%` }}></div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white/5 rounded-xl p-4">
-                    <h3 className="font-semibold mb-3 flex items-center gap-2"><Award className="w-4 h-4 text-purple-400" /> Badge Progress</h3>
-                    <div className="text-center mb-2">
-                      <p className="text-3xl font-bold">{userBadgeCount}/6</p>
-                      <p className="text-xs text-gray-400">Badges Collected</p>
-                    </div>
-                    <div className="w-full bg-white/10 rounded-full h-2">
-                      <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full" style={{ width: `${badgeProgress}%` }}></div>
-                    </div>
-                    <p className="text-xs text-center mt-2 text-gray-400">{Math.round(badgeProgress)}% Complete</p>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-xl p-4">
-                  <div className="flex justify-between items-center flex-wrap gap-3">
-                    <div><p className="text-xs text-gray-400">Current Streak</p><p className="text-xl font-bold flex items-center gap-1"><Flame className="w-4 h-4 text-orange-500" /> {dailyStreak} days</p></div>
-                    <div><p className="text-xs text-gray-400">Tier</p><p className="text-xl font-bold">{tierIcon} {tierName}</p></div>
-                    <div><p className="text-xs text-gray-400">Next Badge</p><p className="text-sm font-medium">{nextBadgeName}</p></div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'agent' && (
-              <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
-                <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Bot className="w-5 h-5 text-cyan-400" /> Agent Gateway (x402)</h2>
-
-                <div className="flex justify-end mb-3">
-                  <button onClick={refreshAgentRequests} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition flex items-center gap-1">
-                    <RefreshCw className="w-3 h-3" /> Refresh
-                  </button>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-white/5 rounded-xl p-4">
-                    <h3 className="font-semibold mb-3">x402 Endpoint</h3>
-                    <p className="text-xs text-gray-400 break-all">GET /api/agent?description=...&amount=...</p>
-                    <p className="text-xs text-gray-400 mt-2">Status: <span className="text-green-400">Running</span></p>
-                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/api/agent`); showToast('Agent URL copied!', 'success'); }} className="mt-3 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 text-sm">Copy Endpoint</button>
-                  </div>
-                  <div className="bg-white/5 rounded-xl p-4">
-                    <h3 className="font-semibold mb-3">Agent Wallet</h3>
-                    <p className="text-sm text-gray-400">Address: <span className="text-xs font-mono">{AGENT_ADDRESS.slice(0,10)}...{AGENT_ADDRESS.slice(-6)}</span></p>
-                    <p className="text-sm text-gray-400">Status: <span className="text-green-400">Active</span></p>
-                    <p className="text-xs text-gray-400 mt-2">Balance: ~12.5 USDC (testnet)</p>
-                  </div>
-                </div>
-                <div className="bg-white/5 rounded-xl p-4 mb-6">
-                  <h3 className="font-semibold mb-3">How it works</h3>
-                  <div className="text-sm text-gray-400 space-y-2">
-                    <p>1. Agent calls <code className="bg-black/30 px-1 rounded">GET /api/agent</code> with description & amount</p>
-                    <p>2. API returns <code className="bg-black/30 px-1 rounded">402 Payment Required</code> with x402 headers</p>
-                    <p>3. Agent pays via Circle Agent Wallet</p>
-                    <p>4. Request created on-chain</p>
-                  </div>
-                </div>
-
-                <div className="bg-white/5 rounded-xl p-4">
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-cyan-400" /> Agent Activity
-                  </h3>
-                  <div className="grid grid-cols-3 gap-2 mb-2 text-xs text-gray-400 border-b border-white/10 pb-2">
-                    <span>Request</span>
-                    <span>Amount</span>
-                    <span className="text-right">Status</span>
-                  </div>
-                  {agentRequests.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-4">No agent requests yet</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {agentRequests.map((req, idx) => (
-                        <div key={idx} className="grid grid-cols-3 gap-2 items-center border-b border-white/5 py-2 text-sm">
-                          <div className="truncate">
-                            <p className="font-medium text-xs">{req.description}</p>
-                            <p className="text-[10px] text-gray-400 font-mono">{req.id.slice(0,8)}...</p>
-                          </div>
-                          <p className="font-bold text-xs">{req.amount} USDC</p>
-                          <p className={`text-xs text-right font-medium ${req.paid ? 'text-green-400' : 'text-yellow-400'}`}>
-                            {req.paid ? '✅ Paid' : '⏳ Pending'}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </div>
             )}
           </>
