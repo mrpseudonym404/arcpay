@@ -68,7 +68,7 @@ Why ArcPay?
 - **Agent Wallet** - Dedicated agent wallet for autonomous on-chain settlement
 - **x402 Payment** - Pay request via `POST /api/agent/pay` with on-chain verification
 - **Idempotency Key** - Prevents duplicate agent payments using unique request keys
-- **Machine-Readable Receipt** - Returns structured receipt with payer, price, settlement reference, status, and output hash for agent verification
+- - **Machine-Readable Receipt** - Returns structured receipt with payer, authority, scope, price, settlement reference, status, and output hash for agent verification
 - **Agent Activity Dashboard** - Track all agent requests and payment status
 - **Refresh Button** - Real-time update agent request status
 
