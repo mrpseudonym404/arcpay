@@ -883,10 +883,13 @@ export default function Home() {
                 <div className="bg-white/5 rounded-xl p-4 mb-6">
                   <h3 className="font-semibold mb-3">How it works</h3>
                   <div className="text-sm text-gray-400 space-y-2">
-                    <p>1. Agent calls <code className="bg-black/30 px-1 rounded">GET /api/agent</code> with description & amount</p>
-                    <p>2. API returns <code className="bg-black/30 px-1 rounded">402 Payment Required</code> with x402 headers</p>
-                    <p>3. Agent pays via Circle Agent Wallet</p>
-                    <p>4. Request created on-chain</p>
+                    <p>1. Agent calls <code class="bg-black/30 px-1 rounded">GET /api/agent</code> with description and amount</p>
+                    <p>2. API returns <code class="bg-black/30 px-1 rounded">402 Payment Required</code> with x402 headers</p>
+                    <p>3. Agent pays via Circle Agent Wallet with unique idempotency key</p>
+                    <p>4. Request created on-chain with verification</p>
+                    <p>5. Check payment status via <code class="bg-black/30 px-1 rounded">POST /api/agent/pay</code></p>
+                    <p>6. Track all agent requests in Agent Dashboard</p>
+                    <p>7. Receive machine-readable receipt with payer, authority, scope, price, settlement reference, status, output hash</p>
                   </div>
                 </div>
 
