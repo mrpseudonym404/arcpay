@@ -9,7 +9,8 @@ import {
   ChevronRight, CheckCircle, Clock, Award, Zap, Star, 
   Shield, Trophy, Layers, Home, Droplet, X, ShieldCheck, 
   FileText, Cookie, Menu, BookOpen, Gift, Flame, TrendingUp,
-  BarChart3, User, Gem, Medal, BadgeCheck
+  BarChart3, User, Gem, Medal, BadgeCheck,
+  Bot
 } from 'lucide-react';
 
 const CONTRACT_ADDRESS = '0x7B5d915e35Ae3C76aBbCE0Bc28DC66636936a630';
@@ -152,7 +153,7 @@ export default function Home() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'paid'>('all');
   const [darkMode, setDarkMode] = useState(true);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [activeTab, setActiveTab] = useState<'requests' | 'payments' | 'badges' | 'leaderboard' | 'analytics'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'payments' | 'badges' | 'leaderboard' | 'analytics' | 'agent'>('requests');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingPayId, setPendingPayId] = useState('');
   const [userPoints, setUserPoints] = useState(0);
@@ -438,7 +439,6 @@ export default function Home() {
 
   const handlePayClick = () => { if (!payId) return showToast('Enter Request ID', 'error'); setPendingPayId(payId); setShowConfirmModal(true); };
 
-  // ============ EXECUTE PAY (2 TRANSAKSI: payRequest + memo) ============
   const executePay = useCallback(async () => {
     const id = pendingPayId;
     setShowConfirmModal(false);
@@ -450,20 +450,20 @@ export default function Home() {
       const req = await contract.requests(id);
       const amountInWei = req.amount;
 
-      // ============ TRANSAKSI 1: PAY REQUEST ============
+      // Transaksi 1: Pay Request
       const tx1 = await contract.payRequest(id, { value: amountInWei, gasLimit: 500000 });
       const receipt1 = await tx1.wait();
       const txHash = receipt1.hash;
       setTxHashes(prev => ({ ...prev, [id]: txHash }));
       setPayId('');
 
-      // ============ TRANSAKSI 2: KIRIM MEMO ============
+      // Transaksi 2: Kirim Memo
       const usdcInterface = new ethers.Interface([
         'function transfer(address to, uint256 amount) returns (bool)'
       ]);
       const transferData = usdcInterface.encodeFunctionData('transfer', [req.creator, amountInWei]);
       
-      const memoId = id; // requestId sudah bytes32
+      const memoId = id;
       const memoData = ethers.hexlify(ethers.toUtf8Bytes(req.description.slice(0, 32)));
       
       const memoContract = new ethers.Contract(MEMO_ADDRESS, MEMO_ABI, signer);
@@ -475,13 +475,11 @@ export default function Home() {
         { gasLimit: 300000 }
       );
 
-      // ============ UPDATE STATE ============
       await fetchMyRequests();
       await fetchMyPayments();
       await fetchBalance();
       await fetchUserStats();
 
-      // ============ BADGE FIRST PAYMENT ============
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
           const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
@@ -584,6 +582,7 @@ export default function Home() {
             <button onClick={() => setActiveTab('badges')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'badges' ? 'text-cyan-400' : 'text-gray-400'}`}><Award className="w-3.5 h-3.5" /> Badges</button>
             <button onClick={() => setActiveTab('leaderboard')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'leaderboard' ? 'text-cyan-400' : 'text-gray-400'}`}><Trophy className="w-3.5 h-3.5" /> Leaderboard</button>
             <button onClick={() => setActiveTab('analytics')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-3.5 h-3.5" /> Analytics</button>
+            <button onClick={() => setActiveTab('agent')} className={`text-sm transition hover:text-cyan-400 flex items-center gap-1 ${activeTab === 'agent' ? 'text-cyan-400' : 'text-gray-400'}`}><Bot className="w-3.5 h-3.5" /> Agent</button>
             <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-1"><Droplet className="w-3.5 h-3.5" /> Faucet</a>
           </div>
           <div className="flex items-center gap-3">
@@ -610,11 +609,12 @@ export default function Home() {
         </div>
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-white/10 bg-black/50 backdrop-blur-md p-4 flex flex-col gap-3">
-            <button onClick={() => { setActiveTab('requests'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'requests' ? 'text-cyan-400' : 'text-gray-400'}`}><Layers className="w-4 h-4" /> Requests</button>
+            <button onClick={() => { setActiveTab('requests'); setMobileMenuOpen(false); }} onTouchStart={() => { setActiveTab('requests'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'requests' ? 'text-cyan-400' : 'text-gray-400'}`}><Layers className="w-4 h-4" /> Requests</button>
             <button onClick={() => { setActiveTab('payments'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'payments' ? 'text-cyan-400' : 'text-gray-400'}`}><Send className="w-4 h-4" /> Payments</button>
             <button onClick={() => { setActiveTab('badges'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'badges' ? 'text-cyan-400' : 'text-gray-400'}`}><Award className="w-4 h-4" /> Badges</button>
             <button onClick={() => { setActiveTab('leaderboard'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'leaderboard' ? 'text-cyan-400' : 'text-gray-400'}`}><Trophy className="w-4 h-4" /> Leaderboard</button>
             <button onClick={() => { setActiveTab('analytics'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'analytics' ? 'text-cyan-400' : 'text-gray-400'}`}><BarChart3 className="w-4 h-4" /> Analytics</button>
+            <button onClick={() => { setActiveTab('agent'); setMobileMenuOpen(false); }} className={`text-sm transition hover:text-cyan-400 flex items-center gap-2 ${activeTab === 'agent' ? 'text-cyan-400' : 'text-gray-400'}`}><Bot className="w-4 h-4" /> Agent</button>
             <a href="https://faucet.circle.com" target="_blank" className="text-sm text-gray-400 hover:text-cyan-400 transition flex items-center gap-2"><Droplet className="w-4 h-4" /> Faucet</a>
             <button onClick={disconnectWallet} className="mt-2 w-full px-4 py-3 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition flex items-center justify-center gap-2 text-sm font-medium">🔌 Disconnect Wallet</button>
           </div>
@@ -639,7 +639,7 @@ export default function Home() {
         </div>
       )}
 
-      <div className="relative z-10 text-center pt-10 pb-8 px-4"><h1 className="text-5xl sm:text-6xl font-black mb-3 bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-2xl flex items-center justify-center gap-2">USDC <span className="text-white/30 text-4xl">→</span> Payments</h1><p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Send and receive payment requests on Arc L1</p></div>
+      <div className="relative z-10 text-center pt-6 pb-4 sm:pt-10 sm:pb-8 px-4"><h1 className="text-3xl sm:text-6xl font-black mb-3 bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-2xl flex items-center justify-center gap-2">USDC <span className="text-white/30 text-4xl">→</span> Payments</h1><p className={`text-base ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Send and receive payment requests on Arc L1</p></div>
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 pb-20">
         <div className="grid md:grid-cols-2 gap-8">
@@ -676,12 +676,13 @@ export default function Home() {
 
         {wallet && (
           <>
-            <div className="flex gap-6 mt-10 border-b border-white/10 mb-6">
+            <div className="flex gap-6 mt-10 border-b border-white/10 mb-6 overflow-x-auto flex-nowrap ">
               <button onClick={() => setActiveTab('requests')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'requests' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Layers className="w-4 h-4" /> My Requests</button>
               <button onClick={() => setActiveTab('payments')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'payments' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Send className="w-4 h-4" /> My Payments{myPayments.length > 0 && <button onClick={() => exportToCSV(myPayments, 'arcpay-payments')} className="ml-2 text-xs bg-cyan-600/50 hover:bg-cyan-600 px-2 py-0.5 rounded-full transition" title="Export CSV"><Download className="w-3 h-3 inline" /> CSV</button>}</button>
               <button onClick={() => setActiveTab('badges')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'badges' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Award className="w-4 h-4" /> Badges{userBadgeCount > 0 && <span className="text-xs bg-cyan-500/30 px-1.5 py-0.5 rounded-full">{userBadgeCount}</span>}</button>
               <button onClick={() => setActiveTab('leaderboard')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'leaderboard' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Trophy className="w-4 h-4" /> Leaderboard</button>
               <button onClick={() => setActiveTab('analytics')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'analytics' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><BarChart3 className="w-4 h-4" /> Analytics</button>
+              <button onClick={() => setActiveTab('agent')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'agent' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Bot className="w-4 h-4" /> Agent</button>
             </div>
 
             {activeTab === 'requests' && (
@@ -823,6 +824,34 @@ export default function Home() {
                     <div><p className="text-xs text-gray-400">Current Streak</p><p className="text-xl font-bold flex items-center gap-1"><Flame className="w-4 h-4 text-orange-500" /> {dailyStreak} days</p></div>
                     <div><p className="text-xs text-gray-400">Tier</p><p className="text-xl font-bold">{tierIcon} {tierName}</p></div>
                     <div><p className="text-xs text-gray-400">Next Badge</p><p className="text-sm font-medium">{nextBadgeName}</p></div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'agent' && (
+              <div className={`${cardBg} rounded-2xl p-6 border ${borderClass}`}>
+                <h2 className="text-xl font-semibold mb-5 flex items-center gap-2"><Bot className="w-5 h-5 text-cyan-400" /> Agent Gateway (x402)</h2>
+                <div className="grid md:grid-cols-2 gap-6 mb-6">
+                  <div className="bg-white/5 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3">x402 Endpoint</h3>
+                    <p className="text-xs text-gray-400 break-all">GET /api/agent?description=...&amount=...</p>
+                    <p className="text-xs text-gray-400 mt-2">Status: <span className="text-green-400">Running</span></p>
+                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/api/agent`); showToast('Agent URL copied!', 'success'); }} className="mt-3 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 text-sm">Copy Endpoint</button>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-4">
+                    <h3 className="font-semibold mb-3">Agent Wallet</h3>
+                    <p className="text-sm text-gray-400">Status: <span className="text-yellow-400">Setup via Circle CLI</span></p>
+                    <p className="text-xs text-gray-400 mt-2">Run: <code className="bg-black/30 px-2 py-0.5 rounded">circle wallet create --type agent</code></p>
+                  </div>
+                </div>
+                <div className="bg-white/5 rounded-xl p-4">
+                  <h3 className="font-semibold mb-3">How it works</h3>
+                  <div className="text-sm text-gray-400 space-y-2">
+                    <p>1. Agent calls <code className="bg-black/30 px-1 rounded">GET /api/agent</code> with description & amount</p>
+                    <p>2. API returns <code className="bg-black/30 px-1 rounded">402 Payment Required</code> with x402 headers</p>
+                    <p>3. Agent pays via Circle Agent Wallet</p>
+                    <p>4. Request created on-chain</p>
                   </div>
                 </div>
               </div>
