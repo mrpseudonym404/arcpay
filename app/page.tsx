@@ -510,7 +510,7 @@ export default function Home() {
       if (SIMPLE_BADGE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
         try {
           const badgeContract = new ethers.Contract(SIMPLE_BADGE_ADDRESS, SIMPLE_BADGE_ABI, signer);
-          await badgeContract.updateStats(wallet, 0, Number(ethers.formatUnits(amountInWei, 18)), { gasLimit: 300000 });
+          await badgeContract.updateStats(wallet, 0, amountInWei, { gasLimit: 300000 });
           const hasFirstPayment = await badgeContract.hasBadge(wallet, 1);
           if (!hasFirstPayment) {
             setPendingBadge({ id: 1, name: 'First Payment' });
@@ -705,7 +705,7 @@ export default function Home() {
           <>
             <div className="flex gap-6 mt-10 border-b border-white/10 mb-6 overflow-x-auto flex-nowrap whitespace-nowrap">
               <button onClick={() => setActiveTab('requests')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'requests' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Layers className="w-4 h-4" /> Requests</button>
-              <button onClick={() => setActiveTab('payments')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'payments' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Send className="w-4 h-4" /> Payments{myPayments.length > 0 && <button onClick={() => exportToCSV(myPayments, 'arcpay-payments')} className="ml-2 text-xs bg-cyan-600/50 hover:bg-cyan-600 px-2 py-0.5 rounded-full transition" title="Export CSV"><Download className="w-3 h-3 inline" /> CSV</button>}</button>
+              <button onClick={() => setActiveTab('payments')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'payments' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Send className="w-4 h-4" /> Payments{myPayments.length > 0 && <span onClick={() => exportToCSV(myPayments, 'arcpay-payments')} className="ml-2 text-xs bg-cyan-600/50 hover:bg-cyan-600 px-2 py-0.5 rounded-full transition cursor-pointer" title="Export CSV"><Download className="w-3 h-3 inline" /> CSV</span>}</button>
               <button onClick={() => setActiveTab('badges')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'badges' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Award className="w-4 h-4" /> Badges{userBadgeCount > 0 && <span className="text-xs bg-cyan-500/30 px-1.5 py-0.5 rounded-full">{userBadgeCount}</span>}</button>
               <button onClick={() => setActiveTab('leaderboard')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'leaderboard' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><Trophy className="w-4 h-4" /> Leaderboard</button>
               <button onClick={() => setActiveTab('analytics')} className={`pb-2 px-2 text-base transition-all flex items-center gap-2 ${activeTab === 'analytics' ? 'border-b-2 border-cyan-400 text-cyan-400' : 'text-gray-400 hover:text-white'}`}><BarChart3 className="w-4 h-4" /> Analytics</button>
